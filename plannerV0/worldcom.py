@@ -11,30 +11,31 @@ class WorldCom(Node):
     def __init__(self):
         super().__init__('world_communication')
         self.world_state = {}
-        self.subscription = self.create_subscription(
+        self.entityPose = self.create_subscription(
             PoseStamped,
             '/entity/id1/pose',
             self.pose_callback,
             10)
-        self.subscription  # prevent unused variable warning
+        self.entityPose  # prevent unused variable warning
 
-        self.publisher_ = self.create_publisher(PoseStamped, '/entity/id1/move_to/goal', 10)
-        timer_period = 10  # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback)
-        self.i = 2
-
-
-    def timer_callback(self):
-        msg = PoseStamped()
-        msg.pose.position.x = 1/self.i
-        msg.pose.position.y = 0.1/self.i
-        msg.pose.position.z = 0.2/self.i
-        self.publisher_.publish(msg)
-        self.get_logger().info('Sending: "%s"' % msg.pose)
-        self.i += 1
+        self.goto = self.create_publisher(PoseStamped, '/entity/id1/move_to/goal', 10)
+    #     timer_period = 10  # seconds
+    #     self.timer = self.create_timer(timer_period, self.timer_callback)
+    #     self.i = 2
+    #
+    #
+    # def timer_callback(self):
+    #     msg = PoseStamped()
+    #     msg.pose.position.x = 1/self.i
+    #     msg.pose.position.y = 0.1/self.i
+    #     msg.pose.position.z = 0.2/self.i
+    #     self.publisher_.publish(msg)
+    #     self.get_logger().info('Sending: "%s"' % msg.pose)
+    #     self.i += 1
 
     def pose_callback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.pose)
+        self.world_state['Pose'] = msg.pose
 
 
 def main(args=None):
