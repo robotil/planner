@@ -19,19 +19,19 @@ class WorldCom(Node):
         self.entityPose  # prevent unused variable warning
 
         self.goto = self.create_publisher(PoseStamped, '/entity/id1/move_to/goal', 10)
-    #     timer_period = 10  # seconds
-    #     self.timer = self.create_timer(timer_period, self.timer_callback)
-    #     self.i = 2
-    #
-    #
-    # def timer_callback(self):
-    #     msg = PoseStamped()
-    #     msg.pose.position.x = 1/self.i
-    #     msg.pose.position.y = 0.1/self.i
-    #     msg.pose.position.z = 0.2/self.i
-    #     self.publisher_.publish(msg)
-    #     self.get_logger().info('Sending: "%s"' % msg.pose)
-    #     self.i += 1
+        timer_period = 10  # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.i = 2
+
+
+    def timer_callback(self):
+        msg = PoseStamped()
+        msg.pose.position.x = 1/self.i
+        msg.pose.position.y = 0.1/self.i
+        msg.pose.position.z = 0.2/self.i
+        self.goto.publish(msg)
+        self.get_logger().info('Sending: "%s"' % msg.pose)
+        self.i += 1
 
     def pose_callback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.pose)
