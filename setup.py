@@ -23,6 +23,7 @@ setup(
             'talker = plannerV0.publisher_member_function:main',
             'listener = plannerV0.subscriber_member_function:main',
             'worldcom = plannerV0.worldcom:main',
+            'dummyserver = plannerV0.dummyserver:main',
         ],
     },
 )

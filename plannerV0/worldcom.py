@@ -5,38 +5,83 @@ from std_msgs.msg import String
 from diagnostic_msgs.msg import DiagnosticStatus
 from actionlib_msgs.msg import GoalID, GoalStatus, GoalStatusArray
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped
+from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnnemyReport
+from planner_msgs.srv import ActGeneralAdmin, StateGeneralAdmin, CheckLOS
 
 class WorldCom(Node):
 
     def __init__(self):
         super().__init__('world_communication')
         self.world_state = {}
-        self.entityPose = self.create_subscription(
-            PoseStamped,
-            '/entity/id1/pose',
-            self.pose_callback,
-            10)
-        self.entityPose  # prevent unused variable warning
+        self.entities = {}
+        self.ennemies = {}
+        self.act_req = 0
+        self.stat_req = 0
+        self.ch_los_req = 0
+        self.entityPoseSub = self.create_subscription(SGlobalPose, '/entity/global_pose', self.global_pose_callback, 10)
 
-        self.goto = self.create_publisher(PoseStamped, '/entity/id1/move_to/goal', 10)
+        self.entityDescriptionSub = self.create_subscription(SDiagnosticStatus, '/entity/description', self.entity_description_callback, 10)
+        self.ennemyDescriptionSub = self.create_subscription(EnnemyReport, '/ennemy/description', self.ennemy_description_callback, 10)
+        self.entityImuSub = self.create_subscription(SImu, '/entity/imu', self.entity_imu_callback, 10)
+        self.entityOverallHealthSub = self.create_subscription(SHealth, '/entity/overall_health', self.entity_overall_health_callback, 10)
+
+        self.moveToPub = self.create_publisher(SGlobalPose, '/entity/move_to/goal', 10)
+        self.attackPub = self.create_publisher(SGlobalPose, '/entity/attack/goal', 10)
+        self.lookPub = self.create_publisher(SGlobalPose, '/entity/look/goal', 10)
+
+        self.genAdminCli = self.create_client(ActGeneralAdmin, 'act_general_admin')
+        self.stateAdminCli = self.create_client(StateGeneralAdmin, 'state_general_admin')
+
         timer_period = 10  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         self.i = 2
 
+    def act_gen_admin_request(self, command):
+        if (command > 2) or (command < 0):
+            self.get_logger().warn('wrong command:'+ascii(command))
+            return
+
+        if self.act_req == 0:
+            while not self.genAdminCli.wait_for_service(timeout_sec=1.0):
+                self.get_logger().info('service ActGeneralAdmin not available, waiting ...')
+            self.act_req = ActGeneralAdmin.Request()
+
+        self.act_req.admin = bytes([command])
+        self.future = self.genAdminCli.call_async(self.act_req)
 
     def timer_callback(self):
-        msg = PoseStamped()
-        msg.pose.position.x = 1/self.i
-        msg.pose.position.y = 0.1/self.i
-        msg.pose.position.z = 0.2/self.i
-        self.goto.publish(msg)
-        self.get_logger().info('Sending: "%s"' % msg.pose)
-        self.i += 1
+        self.get_logger().info('Sending: "%d"' % self.i)
+        self.act_gen_admin_request(self.i)
+        #self.goto.publish(msg)
+        if self.i==3:
+            self.i=0
+        else:
+            self.i += 1
 
-    def pose_callback(self, msg):
-        self.get_logger().info('Received: "%s"' % msg.pose)
-        self.world_state['Pose'] = msg.pose
+    def global_pose_callback(self, msg):
+        self.get_logger().info('Received: "%s"' % msg)
+        self.entities[msg.id.__string__] = msg.gpose.point
+        self.world_state['GlobalPose'] = msg.gpose.point
 
+    def entity_description_callback(self, msg):
+        self.get_logger().info('Received: "%s"' % msg)
+
+        self.entities[msg.id.__string__].name = msg.name
+        self.entities[msg.id.__string__].message = msg.message
+
+    def ennemy_description_callback(self, msg):
+        self.get_logger().info('Received: "%s"' % msg)
+
+    #    self.ennemies[msg.id.__string__].name = msg.name
+    #    self.entities[msg.id.__string__].message = msg.message
+
+    def entity_imu_callback(self, msg):
+        self.get_logger().info('Received: "%s"' % msg)
+        self.entities[msg.id.__string__].imu = msg.imu
+
+    def entity_overall_health_callback(self, msg):
+        self.get_logger().info('Received: "%s"' % msg)
+        self.entities[msg.id.__string__].overallhealth = msg.values
 
 def main(args=None):
     rclpy.init(args=args)
@@ -44,7 +89,6 @@ def main(args=None):
     world_communication = WorldCom()
 
     rclpy.spin(world_communication)
-
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
