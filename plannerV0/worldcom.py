@@ -36,6 +36,7 @@ class WorldCom(Node):
         timer_period = 10  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         self.i = 2
+        self.future = None
 
     def act_gen_admin_request(self, command):
         if (command > 2) or (command < 0):
@@ -51,21 +52,21 @@ class WorldCom(Node):
         self.future = self.genAdminCli.call_async(self.act_req)
 
     def state_gen_admin_request(self):
-        if self.stat_req == 0:
-            while not self.stateAdminCli.wait_for_service(timeout_sec=1.0):
-                self.get_logger().info('service StateGeneralAdmin not available, waiting ...')
-            self.stat_req = StateGeneralAdmin.Request()
-        self.future = self.stateAdminCli.call_async(self.stat_req)
-        self.get_logger().info('state_gen_admin_request sent, waiting ...')
-        # rclpy.spin_once(self)
-        # while not self.future.done():
+        self.stat_req = StateGeneralAdmin.Request()
+        while not self.stateAdminCli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('service StateGeneralAdmin not available, waiting ...')
+
+        # future = self.stateAdminCli.call_async(self.stat_req)
+        # #self.get_logger().info('state_gen_admin_request sent, waiting ...')
+        # #rclpy.spin_until_future_complete(self, future)
+        # while not future.done():
         #     continue
         # try:
-        #     response = self.future.result()
-        # except Exception as e:\
-        #     self.get_logger().info('Service call failed %r' % (e,))
+        #     response = future.result()
+        # except Exception as e:
+        #      self.get_logger().info('Service call failed %r' % (e,))
         # else:
-        #     self.get_logger().info('Result of state_gen_admin_request: %d' % (response.resulting_status))
+        #      self.get_logger().info('State_gen_admin_request: %d' % response.resulting_status)
 
     def timer_callback(self):
         self.get_logger().info('Sending: "%d"' % self.i)
@@ -115,7 +116,7 @@ def main(args=None):
             except Exception as e:
                 world_communication.get_logger().info('Service call failed %r' % (e,))
             else:
-                world_communication.get_logger().info('Result of state_gen_admin_request: %d' % (int.from_bytes(response.resulting_status, "big")))
+                world_communication.get_logger().info('Result of ActGeneralAdmin: %d' % (int.from_bytes(response.resulting_status, "big")))
 
     rclpy.spin(world_communication)
     # Destroy the node explicitly

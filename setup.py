@@ -24,6 +24,7 @@ setup(
             'listener = plannerV0.subscriber_member_function:main',
             'worldcom = plannerV0.worldcom:main',
             'dummyserver = plannerV0.dummyserver:main',
+            'async_client = plannerV0.async_client:main',
         ],
     },
 )
