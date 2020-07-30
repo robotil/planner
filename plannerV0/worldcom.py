@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+import sys
 import rclpy
 from rclpy.node import Node
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -35,6 +37,7 @@ class WorldCom(Node):
 
         timer_period = 10  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.client_futures = []
         self.i = 2
         self.future = None
 
@@ -56,20 +59,21 @@ class WorldCom(Node):
         while not self.stateAdminCli.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('service StateGeneralAdmin not available, waiting ...')
 
+        self.client_futures.append(self.stateAdminCli.call_async(self.stat_req))
         # future = self.stateAdminCli.call_async(self.stat_req)
-        # #self.get_logger().info('state_gen_admin_request sent, waiting ...')
-        # #rclpy.spin_until_future_complete(self, future)
+        # # #self.get_logger().info('state_gen_admin_request sent, waiting ...')
+        # # #rclpy.spin_until_future_complete(self, future)
         # while not future.done():
         #     continue
         # try:
         #     response = future.result()
         # except Exception as e:
-        #      self.get_logger().info('Service call failed %r' % (e,))
+        #     self.get_logger().info('Service call failed %r' % (e,))
         # else:
-        #      self.get_logger().info('State_gen_admin_request: %d' % response.resulting_status)
+        #     self.get_logger().info('State_gen_admin_request: %d' % response.resulting_status)
 
     def timer_callback(self):
-        self.get_logger().info('Sending: "%d"' % self.i)
+        self.get_logger().info('Timer callback: "%d"' % self.i)
         self.act_gen_admin_request(self.i)
         #self.goto.publish(msg)
         if self.i==3:
@@ -80,7 +84,7 @@ class WorldCom(Node):
 
     def global_pose_callback(self, msg):
         self.get_logger().info('Received: "%s"' % msg)
-        self.entities[msg.id.__string__] = msg.gpose.point
+        self.entities[msg.id.__str__()] = msg.gpose.point
         self.world_state['GlobalPose'] = msg.gpose.point
 
     def entity_description_callback(self, msg):
@@ -103,22 +107,35 @@ class WorldCom(Node):
         self.get_logger().info('Received: "%s"' % msg)
         self.entities[msg.id.__string__].overallhealth = msg.values
 
+    def our_spin(self):
+        while rclpy.ok():
+            rclpy.spin_once(self)
+            incomplete_futures = []
+            for f in self.client_futures:
+                if f.done():
+                    res = f.result()
+                    print("received service result: {}".format(res))
+                else:
+                    incomplete_futures.append(f)
+            self.client_futures = incomplete_futures
+
 def main(args=None):
     rclpy.init(args=args)
 
     world_communication = WorldCom()
 
-    while rclpy.ok():
-        rclpy.spin_once(world_communication)
-        if world_communication.future.done():
-            try:
-                response = world_communication.future.result()
-            except Exception as e:
-                world_communication.get_logger().info('Service call failed %r' % (e,))
-            else:
-                world_communication.get_logger().info('Result of ActGeneralAdmin: %d' % (int.from_bytes(response.resulting_status, "big")))
+    # while rclpy.ok():
+    #     rclpy.spin_once(world_communication)
+    #     if world_communication.future.done():
+    #         try:
+    #             response = world_communication.future.result()
+    #         except Exception as e:
+    #             world_communication.get_logger().info('Service call failed %r' % (e,))
+    #         else:
+    #             world_communication.get_logger().info('Result of ActGeneralAdmin: %d' % (int.from_bytes(response.resulting_status, "big")))
 
-    rclpy.spin(world_communication)
+    world_communication.our_spin()
+    #rclpy.spin(world_communication)
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
