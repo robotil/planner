@@ -4,11 +4,11 @@ import rclpy
 from rclpy.node import Node
 from rclpy.callback_groups import ReentrantCallbackGroup
 
-from std_msgs.msg import String
+from std_msgs.msg import String, Header
 from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
 from actionlib_msgs.msg import GoalID, GoalStatus, GoalStatusArray
 from sensor_msgs.msg import Imu
-from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped
+from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
 from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport
 from planner_msgs.srv import ActGeneralAdmin, StateGeneralAdmin, CheckLOS
 import planner_msgs
@@ -39,7 +39,6 @@ class WorldCom(Node):
             self.imu = Imu()
             self.health = KeyValue()
 
-
         def update_desc(self, n_ent):
             self.diagstatus = n_ent.diagstatus
 
@@ -51,6 +50,7 @@ class WorldCom(Node):
 
         def update_health(self, n_ent):
             self.health = n_ent.health
+
 
     def __init__(self):
         super().__init__('world_communication')
@@ -88,7 +88,7 @@ class WorldCom(Node):
             if elem.id == id:
                 found = elem
                 break
-        return elem
+        return found
 
     def get_enemy(self, id):
         res = False
@@ -97,7 +97,7 @@ class WorldCom(Node):
             if elem.id == id:
                 found = elem
                 break
-        return elem
+        return found
 
     def act_gen_admin_request(self, command):
         if (command > 2) or (command < 0):
@@ -152,6 +152,18 @@ class WorldCom(Node):
         else:
             self.i += 1
         self.state_gen_admin_request()
+        goal=PointStamped()
+        goal.header = Header()
+        goal.point = Point()
+        goal.point.x = 0.1
+        goal.point.y = 0.1
+        goal.point.z = 0.1
+        entt = self.get_entity("101")
+        if (entt == None):
+            print("No entity found")
+            return
+        else:
+            self.move_entity_to_goal(entt, goal)
 
     def global_pose_callback(self, msg):
         this_entity = self.get_entity(msg.id)
@@ -208,6 +220,27 @@ class WorldCom(Node):
         this_entity.update_health(msg.values)
         self.world_state['Health'] = msg.values
         self.get_logger().debug('Received: "%s"' % msg)
+
+    def move_entity_to_goal(self, entity, goal):
+        self.get_logger().info('Move entity:'+entity.id+" to position:"+ goal.__str__())
+        msg = SGlobalPose()
+        msg.gpose = goal
+        msg.id = entity.id
+        self.moveToPub.publish(msg)
+
+    def look_at_goal(self, entity, goal):
+        self.get_logger().info('Entity:'+entity.id+" should look at:"+ goal.__str__())
+        msg = SGlobalPose()
+        msg.gpose = goal
+        msg.id = entity.id
+        self.lookPub.publish(msg)
+
+    def attack_goal(self, entity, goal):
+        self.get_logger().info('Entity:'+entity.id+" should attack at:"+ goal.__str__())
+        msg = SGlobalPose()
+        msg.gpose = goal
+        msg.id = entity.id
+        self.attackPub.publish(msg)
 
     def our_spin(self):
         while rclpy.ok():
