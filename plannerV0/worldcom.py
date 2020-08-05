@@ -18,7 +18,7 @@ class WorldCom(Node):
     class Enemy:
         def __init__(self, msg):
             self.cep = msg.cep
-            self.gpose = msg.gpose
+            self.gpoint = msg.gpose
             self.priority=msg.priority
             self.tclass = msg.tclass
             self.is_alive = msg.is_alive
@@ -26,7 +26,7 @@ class WorldCom(Node):
 
         def update(self, n_enn):
             self.cep = n_enn.cep
-            self.gpose = n_enn.gpose
+            self.gpoint = n_enn.gpoint
             self.priority = n_enn.priority
             self.tclass = n_enn.tclass
             self.is_alive = n_enn.is_alive
@@ -52,7 +52,8 @@ class WorldCom(Node):
             self.health = n_ent.health
 
 
-    def __init__(self):
+    def __init__(self, args=None):
+        rclpy.init(args=args)
         super().__init__('world_communication')
         self.world_state = {}
         self.entities = []
@@ -80,6 +81,7 @@ class WorldCom(Node):
         self.client_futures = []
         self.i = 2
         self.future = None
+        self.our_spin()
 
     def get_entity(self, id):
         res = False
@@ -140,8 +142,8 @@ class WorldCom(Node):
         while not self.lineOfSightCli.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('service CheckLOS not available, waiting ...')
 
-        self.ch_los_req.one = entity.gpose
-        self.ch_los_req.two = enemy.gpose
+        self.ch_los_req.one = entity.gpose.point
+        self.ch_los_req.two = enemy.gpoint
         self.client_futures.append(self.lineOfSightCli.call_async(self.ch_los_req))
 
     def timer_callback(self):
@@ -164,6 +166,12 @@ class WorldCom(Node):
             return
         else:
             self.move_entity_to_goal(entt, goal)
+        enn = self.get_enemy("789")
+        if (enn == None):
+            print("No ennemy found")
+            return
+        else:
+            self.check_line_of_sight_request(entt, enn)
 
     def global_pose_callback(self, msg):
         this_entity = self.get_entity(msg.id)
@@ -249,15 +257,13 @@ class WorldCom(Node):
             for f in self.client_futures:
                 if f.done():
                     res = f.result()
-                    #print("received service result: {}".format(res))
-                    res_int = int.from_bytes(res.resulting_status,"big")
-                    #print("service result: {}"+ascii(res_int))
-                    #print("Cool: " + format(res))
-                    #print("Class: " + res.__class__.__str__())
+
                     if type(res).__name__=='ActGeneralAdmin_Response':
                         print("ActGeneralAdmin_Response: "+res.resulting_status.__str__())
+                        res_int = int.from_bytes(res.resulting_status, "big")
                     if type(res).__name__=='StateGeneralAdmin_Response':
                         print("StateGeneralAdmin_Response: " + res.resulting_status.__str__())
+                        res_int = int.from_bytes(res.resulting_status, "big")
                     if type(res).__name__=='CheckLOS_Response':
                         print("CheckLOS_Response: " + res.is_los.__str__())
                 else:
@@ -265,11 +271,11 @@ class WorldCom(Node):
             self.client_futures = incomplete_futures
 
 def main(args=None):
-    rclpy.init(args=args)
+    #rclpy.init(args=args)
 
     world_communication = WorldCom()
 
-    # while rclpy.ok():
+    ## while rclpy.ok():
     #     rclpy.spin_once(world_communication)
     #     if world_communication.future.done():
     #         try:
@@ -277,13 +283,13 @@ def main(args=None):
     #         except Exception as e:
     #             world_communication.get_logger().info('Service call failed %r' % (e,))
     #         else:
-    #             world_communication.get_logger().info('Result of ActGeneralAdmin: %d' % (int.from_bytes(response.resulting_status, "big")))
+    ##             world_communication.get_logger().info('Result of ActGeneralAdmin: %d' % (int.from_bytes(response.resulting_status, "big")))
 
-    world_communication.our_spin()
-    #rclpy.spin(world_communication)
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
+    #world_communication.our_spin()
+    ##rclpy.spin(world_communication)
+    ## Destroy the node explicitly
+    ## (optional - otherwise it will be done automatically
+    ## when the garbage collector destroys the node object)
     world_communication.destroy_node()
     rclpy.shutdown()
 
