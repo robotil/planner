@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-import sys
-import rclpy
-from rclpy.node import Node
-from rclpy.callback_groups import ReentrantCallbackGroup
 
+from threading import Lock, Thread
+import time
+
+import rclpy
+from plannerV0.worldcom import WorldCom
 from std_msgs.msg import String, Header
 from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
 from actionlib_msgs.msg import GoalID, GoalStatus, GoalStatusArray
@@ -11,10 +12,12 @@ from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
 from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport
 from planner_msgs.srv import ActGeneralAdmin, StateGeneralAdmin, CheckLOS
-import planner_msgs
 
-class WorldCom(Node):
+class Planner:
+    "Ououou"
 
+
+class WorldComThread(Thread):
     class Enemy:
         def __init__(self, msg):
             self.cep = msg.cep
@@ -45,39 +48,45 @@ class WorldCom(Node):
         def update_gpose(self, n_pose):
             self.gpose = n_pose
 
-        def update_imu(self, n_imu):
-            self.imu = n_imu
+        def update_imu(self, n_ent):
+            self.imu = n_ent.gpose
 
-        def update_health(self, n_health):
-            self.health = n_health
-
-
-    def __init__(self, args=None):
-        rclpy.init(args=args)
-        super().__init__('world_communication')
+        def update_health(self, n_ent):
+            self.health = n_ent.health
+            
+    def __init__(self):
+        super(WorldComThread, self).__init__()
+        print("WorldComThread initialized")
+        rclpy.init()
         self.world_state = {}
         self.entities = []
         self.enemies = []
         self.act_req = 0
         self.stat_req = 0
         self.ch_los_req = 0
-        self.entityPoseSub = self.create_subscription(SGlobalPose, '/entity/global_pose', self.global_pose_callback, 10)
 
-        self.entityDescriptionSub = self.create_subscription(SDiagnosticStatus, '/entity/description', self.entity_description_callback, 10)
-        self.enemyDescriptionSub = self.create_subscription(EnemyReport, '/enemy/description', self.enemy_description_callback, 10)
-        self.entityImuSub = self.create_subscription(SImu, '/entity/imu', self.entity_imu_callback, 10)
-        self.entityOverallHealthSub = self.create_subscription(SHealth, '/entity/overall_health', self.entity_overall_health_callback, 10)
+    def run(self):
+        self.node = rclpy.create_node("WorldComThread")
+        self.entityPoseSub = self.node.create_subscription(SGlobalPose, '/entity/global_pose', self.global_pose_callback, 10)
 
-        self.moveToPub = self.create_publisher(SGlobalPose, '/entity/move_to/goal', 10)
-        self.attackPub = self.create_publisher(SGlobalPose, '/entity/attack/goal', 10)
-        self.lookPub = self.create_publisher(SGlobalPose, '/entity/look/goal', 10)
+        self.entityDescriptionSub = self.node.create_subscription(SDiagnosticStatus, '/entity/description',
+                                                             self.entity_description_callback, 10)
+        self.enemyDescriptionSub = self.node.create_subscription(EnemyReport, '/enemy/description',
+                                                            self.enemy_description_callback, 10)
+        self.entityImuSub = self.node.create_subscription(SImu, '/entity/imu', self.entity_imu_callback, 10)
+        self.entityOverallHealthSub = self.node.create_subscription(SHealth, '/entity/overall_health',
+                                                               self.entity_overall_health_callback, 10)
 
-        self.genAdminCli = self.create_client(ActGeneralAdmin, 'act_general_admin')
-        self.stateAdminCli = self.create_client(StateGeneralAdmin, 'state_general_admin')
-        self.lineOfSightCli = self.create_client(CheckLOS, 'planner_msgs/CheckLOS')
+        self.moveToPub = self.node.create_publisher(SGlobalPose, '/entity/move_to/goal', 10)
+        self.attackPub = self.node.create_publisher(SGlobalPose, '/entity/attack/goal', 10)
+        self.lookPub = self.node.create_publisher(SGlobalPose, '/entity/look/goal', 10)
+
+        self.genAdminCli = self.node.create_client(ActGeneralAdmin, 'act_general_admin')
+        self.stateAdminCli = self.node.create_client(StateGeneralAdmin, 'state_general_admin')
+        self.lineOfSightCli = self.node.create_client(CheckLOS, 'check_line_of_sight')
 
         timer_period = 10  # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.timer = self.node.create_timer(timer_period, self.timer_callback)
         self.client_futures = []
         self.i = 2
         self.future = None
@@ -103,11 +112,11 @@ class WorldCom(Node):
 
     def act_gen_admin_request(self, command):
         if (command > 2) or (command < 0):
-            self.get_logger().warn('wrong command:'+ascii(command))
+            self.node.get_logger().warn('wrong command:'+ascii(command))
             return
         self.act_req = ActGeneralAdmin.Request()
         while not self.genAdminCli.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('service ActGeneralAdmin not available, waiting ...')
+            self.node.get_logger().info('service ActGeneralAdmin not available, waiting ...')
         self.act_req.admin = bytes([command])
         self.client_futures.append(self.genAdminCli.call_async(self.act_req))
 
@@ -122,7 +131,7 @@ class WorldCom(Node):
     def state_gen_admin_request(self):
         self.stat_req = StateGeneralAdmin.Request()
         while not self.stateAdminCli.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('service StateGeneralAdmin not available, waiting ...')
+            self.node.get_logger().info('service StateGeneralAdmin not available, waiting ...')
 
         self.client_futures.append(self.stateAdminCli.call_async(self.stat_req))
         # future = self.stateAdminCli.call_async(self.stat_req)
@@ -140,37 +149,33 @@ class WorldCom(Node):
     def check_line_of_sight_request(self, entity, enemy):
         self.ch_los_req = CheckLOS.Request()
         while not self.lineOfSightCli.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('service CheckLOS not available, waiting ...')
-        this_point = Point()
-        this_point.x = entity.gpose.x
-        this_point.y = entity.gpose.y
-        this_point.z = entity.gpose.z
+            self.node.get_logger().info('service CheckLOS not available, waiting ...')
 
-        self.ch_los_req.one = this_point
+        self.ch_los_req.one = entity.gpose.point
         self.ch_los_req.two = enemy.gpoint
         self.client_futures.append(self.lineOfSightCli.call_async(self.ch_los_req))
 
     def timer_callback(self):
-        self.get_logger().info('Timer callback: "%d"' % self.i)
-        # self.act_gen_admin_request(self.i)
-        # if self.i==3:
-        #     self.i=0
-        # else:
-        #     self.i += 1
-        # self.state_gen_admin_request()
+        self.node.get_logger().info('Timer callback: "%d"' % self.i)
+        self.act_gen_admin_request(self.i)
+        if self.i==3:
+            self.i=0
+        else:
+            self.i += 1
+        self.state_gen_admin_request()
         goal=PointStamped()
         goal.header = Header()
         goal.point = Point()
         goal.point.x = 0.1
         goal.point.y = 0.1
         goal.point.z = 0.1
-        entt = self.get_entity("Suicide")
+        entt = self.get_entity("101")
         if (entt == None):
             print("No entity found")
             return
-        # else:
-        #     self.move_entity_to_goal(entt, goal)
-        enn = self.get_enemy("Sniper")
+        else:
+            self.move_entity_to_goal(entt, goal)
+        enn = self.get_enemy("789")
         if (enn == None):
             print("No ennemy found")
             return
@@ -180,11 +185,11 @@ class WorldCom(Node):
     def global_pose_callback(self, msg):
         this_entity = self.get_entity(msg.id)
         if (this_entity==None):
-            self.get_logger().info('This entity "%s" is not managed yet' % msg.id)
+            self.node.get_logger().info('This entity "%s" is not managed yet' % msg.id)
             return
-        this_entity.update_gpose(msg.gpose.point)
+        this_entity.update_pose(msg.gpose.point)
         self.world_state['GlobalPose'] = msg.gpose.point
-        self.get_logger().debug('Received: "%s"' % msg)
+        self.node.get_logger().debug('Received: "%s"' % msg)
 
 
     def entity_description_callback(self, msg):
@@ -198,7 +203,7 @@ class WorldCom(Node):
         if not res:
             self.entities.append(a)
 
-        self.get_logger().debug('Received: "%s"' % msg)
+        self.node.get_logger().debug('Received: "%s"' % msg)
 
     def enemy_description_callback(self, msg):
         a = self.Enemy(msg)
@@ -210,7 +215,7 @@ class WorldCom(Node):
                 break
         if not res:
             self.enemies.append(a)
-        self.get_logger().debug('Received: "%s"' % msg)
+        self.node.get_logger().debug('Received: "%s"' % msg)
 
 
 
@@ -234,29 +239,30 @@ class WorldCom(Node):
         self.get_logger().debug('Received: "%s"' % msg)
 
     def move_entity_to_goal(self, entity, goal):
-        self.get_logger().info('Move entity:'+entity.id+" to position:"+ goal.__str__())
+        self.node.get_logger().info('Move entity:'+entity.id+" to position:"+ goal.__str__())
         msg = SGlobalPose()
         msg.gpose = goal
         msg.id = entity.id
         self.moveToPub.publish(msg)
 
     def look_at_goal(self, entity, goal):
-        self.get_logger().info('Entity:'+entity.id+" should look at:"+ goal.__str__())
+        self.node.get_logger().info('Entity:'+entity.id+" should look at:"+ goal.__str__())
         msg = SGlobalPose()
         msg.gpose = goal
         msg.id = entity.id
         self.lookPub.publish(msg)
 
     def attack_goal(self, entity, goal):
-        self.get_logger().info('Entity:'+entity.id+" should attack at:"+ goal.__str__())
+        self.node.get_logger().info('Entity:'+entity.id+" should attack at:"+ goal.__str__())
         msg = SGlobalPose()
         msg.gpose = goal
         msg.id = entity.id
         self.attackPub.publish(msg)
 
     def our_spin(self):
+        spin_timeout = 0.05
         while rclpy.ok():
-            rclpy.spin_once(self)
+            rclpy.spin_once(self.node, spin_timeout)
             incomplete_futures = []
             for f in self.client_futures:
                 if f.done():
@@ -274,29 +280,46 @@ class WorldCom(Node):
                     incomplete_futures.append(f)
             self.client_futures = incomplete_futures
 
+def read_world(self):
+    #Get all entities
+    self.our_forces = self.thread.entities
+    print("We have "+self.our_forces.count()+" entities")
+    for elem in self.our_forces:
+        print("%s:%s", elem.id, elem.diagstatus.name)
+    self.hostile_forces = self.thread.enemies
+    print("We have " + self.our_forces.count() + " enemies")
+    for elem in self.hostile_forces:
+        print("%s:%s", elem.id, elem.tclass.__str__())
+
+def actions(self):
+    #Get all entities
+    if self.thread == None:
+        print("World was not created yet...")
+        return
+    self.our_forces = self.thread.entities
+    print("We have "+self.our_forces.count()+" entities")
+    self.hostile_forces = self.thread.enemies
+    print("We have " + self.our_forces.count() + " enemies")
+
 def main(args=None):
-    #rclpy.init(args=args)
+    try:
+        thread = WorldComThread()
+        thread.start()
 
-    world_communication = WorldCom()
+        while True:
+            read_world()
+            actions()
+            time.sleep(1)
+            if not thread.isAlive():
+                break
 
-    ## while rclpy.ok():
-    #     rclpy.spin_once(world_communication)
-    #     if world_communication.future.done():
-    #         try:
-    #             response = world_communication.future.result()
-    #         except Exception as e:
-    #             world_communication.get_logger().info('Service call failed %r' % (e,))
-    #         else:
-    ##             world_communication.get_logger().info('Result of ActGeneralAdmin: %d' % (int.from_bytes(response.resulting_status, "big")))
+    except KeyboardInterrupt:
+        if thread.isAlive():
+            thread.stop()
 
-    #world_communication.our_spin()
-    ##rclpy.spin(world_communication)
-    ## Destroy the node explicitly
-    ## (optional - otherwise it will be done automatically
-    ## when the garbage collector destroys the node object)
-    world_communication.destroy_node()
-    rclpy.shutdown()
-
+    finally:
+        # Block the main thread until the other thread terminates
+        thread.join()
 
 if __name__ == '__main__':
     main()
