@@ -35,7 +35,7 @@ class WorldCom(Node):
         def __init__(self, msg):
             self.id = msg.id
             self.diagstatus = msg.diagstatus
-            self.gpose= PointStamped()
+            self.gpoint= Point()
             self.imu = Imu()
             self.health = KeyValue()
 
@@ -43,7 +43,7 @@ class WorldCom(Node):
             self.diagstatus = n_ent.diagstatus
 
         def update_gpose(self, n_pose):
-            self.gpose = n_pose
+            self.gpoint = n_pose
 
         def update_imu(self, n_imu):
             self.imu = n_imu
@@ -124,12 +124,7 @@ class WorldCom(Node):
         self.ch_los_req = CheckLOS.Request()
         while not self.lineOfSightCli.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('service CheckLOS not available, waiting ...')
-        this_point = Point()
-        # this_point.x = entity.gpose.x
-        # this_point.y = entity.gpose.y
-        # this_point.z = entity.gpose.z
-
-        self.ch_los_req.one = entity.gpose.point
+        self.ch_los_req.one = entity.gpoint
         self.ch_los_req.two = enemy.gpoint
         self.client_futures.append(self.lineOfSightCli.call_async(self.ch_los_req))
 
