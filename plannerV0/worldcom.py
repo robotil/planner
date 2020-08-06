@@ -9,8 +9,8 @@ from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
 from actionlib_msgs.msg import GoalID, GoalStatus, GoalStatusArray
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
-from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport
-from planner_msgs.srv import ActGeneralAdmin, StateGeneralAdmin, CheckLOS
+from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath
+from planner_msgs.srv import ActGeneralAdmin, StateGeneralAdmin, CheckLOS, AllPathEntityToTarget
 import planner_msgs
 
 class WorldCom(Node):
@@ -61,6 +61,7 @@ class WorldCom(Node):
         self.act_req = 0
         self.stat_req = 0
         self.ch_los_req = 0
+        self.get_ways_req = 0
         self.entityPoseSub = self.create_subscription(SGlobalPose, '/entity/global_pose', self.global_pose_callback, 10)
 
         self.entityDescriptionSub = self.create_subscription(SDiagnosticStatus, '/entity/description', self.entity_description_callback, 10)
@@ -68,13 +69,15 @@ class WorldCom(Node):
         self.entityImuSub = self.create_subscription(SImu, '/entity/imu', self.entity_imu_callback, 10)
         self.entityOverallHealthSub = self.create_subscription(SHealth, '/entity/overall_health', self.entity_overall_health_callback, 10)
 
-        self.moveToPub = self.create_publisher(SGlobalPose, '/entity/move_to/goal', 10)
+        self.moveToPub = self.create_publisher(SGlobalPose, '/entity/moveto/goal', 10)
         self.attackPub = self.create_publisher(SGlobalPose, '/entity/attack/goal', 10)
         self.lookPub = self.create_publisher(SGlobalPose, '/entity/look/goal', 10)
+        self.takePathPub = self.create_publisher(SPath, '/entity/takepath', 10)
 
         self.genAdminCli = self.create_client(ActGeneralAdmin, 'act_general_admin')
         self.stateAdminCli = self.create_client(StateGeneralAdmin, 'state_general_admin')
-        self.lineOfSightCli = self.create_client(CheckLOS, 'planner_msgs/CheckLOS')
+        self.lineOfSightCli = self.create_client(CheckLOS, 'check_line_of_sight')
+        self.getAllPossibleWaysCli = self.create_client(AllPathEntityToTarget, 'get_all_possible_ways')
 
         timer_period = 10  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
@@ -84,7 +87,6 @@ class WorldCom(Node):
         self.our_spin()
 
     def get_entity(self, id):
-        res = False
         found = None
         for elem in self.entities:
             if elem.id == id:
@@ -93,7 +95,6 @@ class WorldCom(Node):
         return found
 
     def get_enemy(self, id):
-        res = False
         found = None
         for elem in self.enemies:
             if elem.id == id:
@@ -111,53 +112,43 @@ class WorldCom(Node):
         self.act_req.admin = bytes([command])
         self.client_futures.append(self.genAdminCli.call_async(self.act_req))
 
-        # if self.act_req == 0:
-        #     while not self.genAdminCli.wait_for_service(timeout_sec=1.0):
-        #         self.get_logger().info('service ActGeneralAdmin not available, waiting ...')
-        # self.act_req = ActGeneralAdmin.Request()
-        #
-        # self.act_req.admin = bytes([command])
-        # self.future = self.genAdminCli.call_async(self.act_req)
-
     def state_gen_admin_request(self):
         self.stat_req = StateGeneralAdmin.Request()
         while not self.stateAdminCli.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('service StateGeneralAdmin not available, waiting ...')
 
         self.client_futures.append(self.stateAdminCli.call_async(self.stat_req))
-        # future = self.stateAdminCli.call_async(self.stat_req)
-        # # #self.get_logger().info('state_gen_admin_request sent, waiting ...')
-        # # #rclpy.spin_until_future_complete(self, future)
-        # while not future.done():
-        #     continue
-        # try:
-        #     response = future.result()
-        # except Exception as e:
-        #     self.get_logger().info('Service call failed %r' % (e,))
-        # else:
-        #     self.get_logger().info('State_gen_admin_request: %d' % response.resulting_status)
+
 
     def check_line_of_sight_request(self, entity, enemy):
         self.ch_los_req = CheckLOS.Request()
         while not self.lineOfSightCli.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('service CheckLOS not available, waiting ...')
         this_point = Point()
-        this_point.x = entity.gpose.x
-        this_point.y = entity.gpose.y
-        this_point.z = entity.gpose.z
+        # this_point.x = entity.gpose.x
+        # this_point.y = entity.gpose.y
+        # this_point.z = entity.gpose.z
 
-        self.ch_los_req.one = this_point
+        self.ch_los_req.one = entity.gpose.point
         self.ch_los_req.two = enemy.gpoint
         self.client_futures.append(self.lineOfSightCli.call_async(self.ch_los_req))
 
+    def get_all_possible_ways_request(self, entity, target):
+        self.get_ways_req = AllPathEntityToTarget.Request()
+        while not self.getAllPossibleWaysCli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('service ALLPathEntityToTarget not available, waiting ...')
+        self.get_ways_req.entityid = entity.id
+        self.get_ways_req.target = target
+        self.client_futures.append(self.getAllPossibleWaysCli.call_async(self.get_ways_req))
+
     def timer_callback(self):
         self.get_logger().info('Timer callback: "%d"' % self.i)
-        # self.act_gen_admin_request(self.i)
-        # if self.i==3:
-        #     self.i=0
-        # else:
-        #     self.i += 1
-        # self.state_gen_admin_request()
+        self.act_gen_admin_request(self.i)
+        if self.i==3:
+            self.i=0
+        else:
+            self.i += 1
+        self.state_gen_admin_request()
         goal=PointStamped()
         goal.header = Header()
         goal.point = Point()
@@ -168,14 +159,15 @@ class WorldCom(Node):
         if (entt == None):
             print("No entity found")
             return
-        # else:
-        #     self.move_entity_to_goal(entt, goal)
+        else:
+            self.move_entity_to_goal(entt, goal)
         enn = self.get_enemy("Sniper")
         if (enn == None):
             print("No ennemy found")
             return
         else:
             self.check_line_of_sight_request(entt, enn)
+        self.get_all_possible_ways_request(entt,goal.point)
 
     def global_pose_callback(self, msg):
         this_entity = self.get_entity(msg.id)
@@ -247,6 +239,13 @@ class WorldCom(Node):
         msg.id = entity.id
         self.lookPub.publish(msg)
 
+    def take_path(self, entity, path):
+        self.get_logger().info('Entity:'+entity.id+" should take the path:"+ path.name)
+        msg = SPath()
+        msg.path = path
+        msg.id = entity.id
+        self.takePathPub.publish(msg)
+
     def attack_goal(self, entity, goal):
         self.get_logger().info('Entity:'+entity.id+" should attack at:"+ goal.__str__())
         msg = SGlobalPose()
@@ -270,6 +269,8 @@ class WorldCom(Node):
                         res_int = int.from_bytes(res.resulting_status, "big")
                     if type(res).__name__=='CheckLOS_Response':
                         print("CheckLOS_Response: " + res.is_los.__str__())
+                    if type(res).__name__=='AllPathEntityToTarget_Response':
+                        print("AllPathEntityToTarget_Response: " + res.path.__str__())
                 else:
                     incomplete_futures.append(f)
             self.client_futures = incomplete_futures
