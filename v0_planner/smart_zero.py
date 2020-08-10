@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys
 
-from plannerV0.worldcom import WorldCom
+from v0_planner.worldcom import WorldCom
 
 import _thread, time
 

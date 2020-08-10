@@ -4,7 +4,7 @@ from threading import Lock, Thread
 import time
 
 import rclpy
-from plannerV0.worldcom import WorldCom
+from v0_planner.worldcom import WorldCom
 from std_msgs.msg import String, Header
 from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
 from actionlib_msgs.msg import GoalID, GoalStatus, GoalStatusArray
