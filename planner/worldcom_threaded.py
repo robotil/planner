@@ -4,7 +4,7 @@ from threading import Lock, Thread
 import time
 
 import rclpy
-from plannerV0.worldcom import WorldCom
+from v0_planner.worldcom import WorldCom
 from std_msgs.msg import String, Header
 from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
 from actionlib_msgs.msg import GoalID, GoalStatus, GoalStatusArray
@@ -86,7 +86,7 @@ class WorldComThread(Thread):
         self.lineOfSightCli = self.node.create_client(CheckLOS, 'check_line_of_sight')
 
         timer_period = 10  # seconds
-        self.timer = self.node.create_timer(timer_period, self.timer_callback)
+#        self.timer = self.node.create_timer(timer_period, self.timer_callback)
         self.client_futures = []
         self.i = 2
         self.future = None
@@ -169,13 +169,13 @@ class WorldComThread(Thread):
         goal.point.x = 0.1
         goal.point.y = 0.1
         goal.point.z = 0.1
-        entt = self.get_entity("101")
+        entt = self.get_entity("Suicide")
         if (entt == None):
             print("No entity found")
             return
         else:
             self.move_entity_to_goal(entt, goal)
-        enn = self.get_enemy("789")
+        enn = self.get_enemy("Sniper")
         if (enn == None):
             print("No ennemy found")
             return
@@ -260,9 +260,11 @@ class WorldComThread(Thread):
         self.attackPub.publish(msg)
 
     def our_spin(self):
-        spin_timeout = 0.05
+        spin_timeout = 1
         while rclpy.ok():
-            rclpy.spin_once(self.node, spin_timeout)
+            rclpy.spin_once(self.node)
+            #rclpy.executors.spin_once(self.node, spin_timeout)
+            #rclpy.spin_once(self.node, spin_timeout)
             incomplete_futures = []
             for f in self.client_futures:
                 if f.done():

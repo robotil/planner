@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'plannerV0'
+package_name = 'planner'
 
 setup(
     name=package_name,
@@ -20,11 +20,11 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'talker = plannerV0.publisher_member_function:main',
-            'listener = plannerV0.subscriber_member_function:main',
-            'worldcom = plannerV0.worldcom:main',
-            'dummyserver = plannerV0.dummyserver:main',
-            'async_client = plannerV0.async_client:main',
+            'talker = planner.publisher_member_function:main',
+            'listener = planner.subscriber_member_function:main',
+            'worldcom = planner.worldcom:main',
+            'dummyserver = planner.dummyserver:main',
+            'async_client = planner.async_client:main',
         ],
     },
 )
