@@ -5,7 +5,6 @@ import rclpy
 
 def check_state_simulation(args=None):
     res_int = 255
-    rclpy.init(args=args)
 
     node = rclpy.create_node('check_state_simulation')
     stateAdminCli = node.create_client(StateGeneralAdmin, 'state_general_admin')
@@ -22,12 +21,12 @@ def check_state_simulation(args=None):
         node.get_logger().error('Exception while calling service: %r' % future.exception())
 
     node.destroy_node()
-    rclpy.shutdown()
+
     return res_int
 
 def act_on_simulation(args="0"):
     res_int = 255
-    rclpy.init(args=args)
+
     command = int(args)
     node = rclpy.create_node('act_on_simulation')
     genAdminCli = node.create_client(ActGeneralAdmin, 'act_general_admin')
@@ -44,12 +43,12 @@ def act_on_simulation(args="0"):
     else:
         node.get_logger().error('Exception while calling service: %r' % future.exception())
 
-    node.destroy_node()
-    rclpy.shutdown()
     return res_int
 
 if __name__ == '__main__':
+    rclpy.init()
     ret=check_state_simulation()
     print("ret state value="+ret.__str__()+" type"+str(type(ret)))
     ret=act_on_simulation("2")
     print("ret act value="+ret.__str__()+" type"+str(type(ret)))
+    rclpy.shutdown()

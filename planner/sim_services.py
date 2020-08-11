@@ -15,7 +15,7 @@ import rclpy
 #   False if not
 
 def check_line_of_sight(one, two):
-    rclpy.init()
+
     res = False
     node = rclpy.create_node('check_line_of_sight')
     line_of_sight_cli = node.create_client(CheckLOS, 'check_line_of_sight')
@@ -35,7 +35,7 @@ def check_line_of_sight(one, two):
         node.get_logger().error('Exception while calling service: %r' % future.exception())
 
     node.destroy_node()
-    rclpy.shutdown()
+
     return res
 
 
@@ -48,7 +48,7 @@ def check_line_of_sight(one, two):
 #   All possible path between entity and target
 
 def get_all_possible_ways(entityid, target):
-    rclpy.init()
+
     res = {}
     node = rclpy.create_node('get_all_possible_ways')
     get_all_possible_ways_cli = node.create_client(AllPathEntityToTarget, 'get_all_possible_ways')
@@ -68,13 +68,15 @@ def get_all_possible_ways(entityid, target):
         node.get_logger().error('Exception while calling service: %r' % future.exception())
 
     node.destroy_node()
-    rclpy.shutdown()
+
     return res
 
 if __name__ == '__main__':
+    rclpy.init()
     p1 = Point(x=0.2, y=0.2, z=0.2)
     p2 = Point(x=0.4, y=0.4, z=0.4)
     ret=check_line_of_sight(p1,p2)
     print("ret state value="+ret.__str__()+" type"+str(type(ret)))
     ret=get_all_possible_ways("Suicide", p2)
     print("ret act value="+ret.__str__()+" type"+str(type(ret)))
+    rclpy.shutdown()

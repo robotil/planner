@@ -13,7 +13,6 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String, Header
 from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
-from actionlib_msgs.msg import GoalID, GoalStatus, GoalStatusArray
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
 from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath
@@ -161,7 +160,6 @@ class PlannerEnv(gym.Env):
 
     def __init__(self):
         super(PlannerEnv, self).__init__()
-
         print('Planner environment created!')
         self.hist_size = 3
         self.simOn = False
@@ -174,7 +172,7 @@ class PlannerEnv(gym.Env):
         self.TIME_STEP = 0.05  # 10 mili-seconds
         self.steps = 0
         self.total_reward = 0
-        self.boarders = []
+        self.done = False
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete actions:
@@ -187,21 +185,24 @@ class PlannerEnv(gym.Env):
         self._obs = []
         # As a first step, actions can be only of 3 types: move, look, attack
         # For each type of action, there should be a list of pairs of {entity, goal}
-        self._actions = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}]}
+        self._actions = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}], 'TAKE_PATH': [{}]}
 
         # ROS2 Support
-        rclpy.init()
         self.entities = []
         self.enemies = []
-        self.act_req = 0
-        self.stat_req = 0
-        self.ch_los_req = 0
-        self.node = rclpy.create_node("planner")
+
+        try:
+            rclpy.init()
+            self.node = rclpy.create_node("planner")
+            print("Didn't get exception")
+        except RuntimeError:
+            print("Got exception")
+            pass
+
 
         # Subscribe to topics
         self.entityPoseSub = self.node.create_subscription(SGlobalPose, '/entity/global_pose',
                                                            self.global_pose_callback, 10)
-
         self.entityDescriptionSub = self.node.create_subscription(SDiagnosticStatus, '/entity/description',
                                                                   self.entity_description_callback, 10)
         self.enemyDescriptionSub = self.node.create_subscription(EnemyReport, '/enemy/description',
@@ -213,14 +214,17 @@ class PlannerEnv(gym.Env):
         self.moveToPub = self.node.create_publisher(SGlobalPose, '/entity/move_to/goal', 10)
         self.attackPub = self.node.create_publisher(SGlobalPose, '/entity/attack/goal', 10)
         self.lookPub = self.node.create_publisher(SGlobalPose, '/entity/look/goal', 10)
-        self.takePathPub = self.create_publisher(SPath, '/entity/takepath', 10)
+        self.takePathPub = self.node.create_publisher(SPath, '/entity/takepath', 10)
 
-        timer_period = 10  # seconds
-        #        self.timer = self.node.create_timer(timer_period, self.timer_callback)
         self.num_of_dead_enemies = 0
+
+    def render(self, mode='human'):
+        pass
 
     def get_obs(self):
         obs = self.update_state()
+        # check line of sight?
+        # check paths?
         return obs
 
     def update_state(self):
@@ -229,7 +233,6 @@ class PlannerEnv(gym.Env):
         # Line of sight?
         # Different path
         obs = {'entities': entities, 'enemies': enemies}
-        # obs = {'h_map': h_map}
         return obs
 
     def init_env(self):
@@ -256,7 +259,6 @@ class PlannerEnv(gym.Env):
         # clear all
         self.steps = 0
         self.total_reward = 0
-        self.boarders = []
         self._obs = []
 
         # initial state depends on environment (mission)
@@ -264,13 +266,13 @@ class PlannerEnv(gym.Env):
 
         # wait for simulation to set up
         while True:  # wait for all topics to arrive
-            if bool(self.entities) and bool(self.ennemies):  # and len(self.stones) == self.numStones + 1:
+            if bool(self.entities) and bool(self.enemies):  # if there is some data:
                 break
 
         # wait for simulation to stabilize, stones stop moving
         time.sleep(5)
 
-        self._obs = self.update_state()
+        self._obs = self.get_obs()
         return self._obs
 
     def time_stuff(self):

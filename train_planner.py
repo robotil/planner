@@ -14,8 +14,7 @@ from matplotlib import pyplot as plt
 #from tensor_board_cb import TensorboardCallback
 from stable_baselines.common.callbacks import CallbackList, CheckpointCallback, EvalCallback
 from stable_baselines.common.evaluation import evaluate_policy
-import gym_SmartLoader.envs
-from LLC import LLC_pid
+import planner.envs
 
 from stable_baselines.common.policies import ActorCriticPolicy, register_policy, nature_cnn
 from stable_baselines.sac.policies import SACPolicy, gaussian_entropy, gaussian_likelihood, apply_squashing_func, mlp, nature_cnn
@@ -836,8 +835,8 @@ def CreateLogAndModelDirs(args):
 def main(args):
     # register_policy('CnnMlpPolicy',CnnMlpPolicy)
     env_name = args.mission + '-' + args.env_ver
-    env = gym.make(env_name)  # .unwrapped  <= NEEDED?
-    print('gym env created', env_name, env)
+#??    env = gym.make(env_name)  # .unwrapped  <= NEEDED?
+#??    print('gym env created', env_name, env)
 
     save_dir, model_dir, log_dir = CreateLogAndModelDirs(args)
 
@@ -860,7 +859,7 @@ def main(args):
 
 
 def add_arguments(parser):
-    parser.add_argument('--mission', type=str, default="PushAlgoryxEnv", help="The agents' task")
+    parser.add_argument('--mission', type=str, default="PlannerEnv", help="The agents' task")
     parser.add_argument('--env-ver', type=str, default="v0", help="The custom gym enviornment version")
     parser.add_argument('--dir-pref', type=str, default="stable_bl/", help="The log and model dir prefix")
 
@@ -869,7 +868,7 @@ def add_arguments(parser):
     parser.add_argument('--algo', help='RL Algorithm', default='sac', type=str, required=False, choices=list(ALGOS.keys()))
     parser.add_argument('--policy', help='Network topography', default='CnnMlpPolicy', type=str, required=False, choices=POLICIES)
 
-    parser.add_argument('--job', help='job to be done', default='play', type=str, required=False, choices=JOBS)
+    parser.add_argument('--job', help='job to be done', default='train', type=str, required=False, choices=JOBS)
     parser.add_argument('-n', '--n-timesteps', help='Overwrite the number of timesteps', default=int(1e6), type=int)
     parser.add_argument('--log-interval', help='Override log interval (default: -1, no change)', default=-1, type=int)
     parser.add_argument('--save-interval', help='Number of timestamps between model saves', default=2000, type=int)
