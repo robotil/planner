@@ -17,19 +17,24 @@ from actionlib_msgs.msg import GoalID, GoalStatus, GoalStatusArray
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
 from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath
-from planner_msgs.srv import ActGeneralAdmin, StateGeneralAdmin, CheckLOS, AllPathEntityToTarget
 from planner.sim_admin import check_state_simulation, act_on_simulation
+from planner.sim_services import check_line_of_sight, get_all_possible_ways
 
-STOP=0
-START=1
-PAUSE=2
+STOP = 0
+START = 1
+PAUSE = 2
+
 
 class PlannerEnv(gym.Env):
+    MAX_STEPS = 200
+    STEP_REWARD = 1 / MAX_STEPS
+    FINAL_REWARD = 1.0
+
     class Enemy:
         def __init__(self, msg):
             self.cep = msg.cep
             self.gpoint = msg.gpose
-            self.priority=msg.priority
+            self.priority = msg.priority
             self.tclass = msg.tclass
             self.is_alive = msg.is_alive
             self.id = msg.id
@@ -45,7 +50,7 @@ class PlannerEnv(gym.Env):
         def __init__(self, msg):
             self.id = msg.id
             self.diagstatus = msg.diagstatus
-            self.gpoint= Point()
+            self.gpoint = Point()
             self.imu = Imu()
             self.health = KeyValue()
 
@@ -76,22 +81,6 @@ class PlannerEnv(gym.Env):
                 found = elem
                 break
         return found
-
-    def check_line_of_sight_request(self, entity, enemy):
-        self.ch_los_req = CheckLOS.Request()
-        while not self.lineOfSightCli.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('service CheckLOS not available, waiting ...')
-        self.ch_los_req.one = entity.gpoint
-        self.ch_los_req.two = enemy.gpoint
-        self.client_futures.append(self.lineOfSightCli.call_async(self.ch_los_req))
-
-    def get_all_possible_ways_request(self, entity, target):
-        self.get_ways_req = AllPathEntityToTarget.Request()
-        while not self.getAllPossibleWaysCli.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('service ALLPathEntityToTarget not available, waiting ...')
-        self.get_ways_req.entityid = entity.id
-        self.get_ways_req.target = target
-        self.client_futures.append(self.getAllPossibleWaysCli.call_async(self.get_ways_req))
 
     def global_pose_callback(self, msg):
         this_entity = self.get_entity(msg.id)
@@ -224,28 +213,21 @@ class PlannerEnv(gym.Env):
         self.moveToPub = self.node.create_publisher(SGlobalPose, '/entity/move_to/goal', 10)
         self.attackPub = self.node.create_publisher(SGlobalPose, '/entity/attack/goal', 10)
         self.lookPub = self.node.create_publisher(SGlobalPose, '/entity/look/goal', 10)
-
-        # Clients to services
-        # self.genAdminCli = self.node.create_client(ActGeneralAdmin, 'act_general_admin')
-        # self.stateAdminCli = self.node.create_client(StateGeneralAdmin, 'state_general_admin')
-        self.lineOfSightCli = self.node.create_client(CheckLOS, 'check_line_of_sight')
+        self.takePathPub = self.create_publisher(SPath, '/entity/takepath', 10)
 
         timer_period = 10  # seconds
         #        self.timer = self.node.create_timer(timer_period, self.timer_callback)
-        self.client_futures = []
-        self.i = 2
-        self.future = None
-        #self.our_spin()
+        self.num_of_dead_enemies = 0
 
     def get_obs(self):
         obs = self.update_state()
         return obs
 
-
     def update_state(self):
         entities = self.entities
         enemies = self.enemies
-
+        # Line of sight?
+        # Different path
         obs = {'entities': entities, 'enemies': enemies}
         # obs = {'h_map': h_map}
         return obs
@@ -253,11 +235,13 @@ class PlannerEnv(gym.Env):
     def init_env(self):
         if self.simOn:
             ret = check_state_simulation()
-            if ret!=START or ret!=PAUSE:
-                print("Inconsistent state of the simulation = "+str(ret))
+            if ret != START or ret != PAUSE:
+                print("Inconsistent state of the simulation = " + str(ret))
             nret = act_on_simulation(ascii(STOP))
             if nret != STOP:
                 print("Couldn't stop the simulation")
+            else:
+                self.simOn = False
 
         # Restart simulation
         ret = act_on_simulation(ascii(START))
@@ -279,8 +263,8 @@ class PlannerEnv(gym.Env):
         self.init_env()
 
         # wait for simulation to set up
-        while True: # wait for all topics to arrive
-            if bool(self.entities) and bool(self.ennemies): # and len(self.stones) == self.numStones + 1:
+        while True:  # wait for all topics to arrive
+            if bool(self.entities) and bool(self.ennemies):  # and len(self.stones) == self.numStones + 1:
                 break
 
         # wait for simulation to stabilize, stones stop moving
@@ -298,6 +282,23 @@ class PlannerEnv(gym.Env):
             time_step = self.current_time - self.last_time
         self.time_step.append(time_step)
         self.last_time = self.current_time
+
+    def reward_func(self):
+        previous = self.num_of_dead_enemies
+        num_of_dead_enemies=0
+        for enemy in self.enemies:
+            if not enemy.is_alive:
+                num_of_dead_enemies = num_of_dead_enemies + 1
+        self.num_of_dead_enemies=num_of_dead_enemies
+
+        if num_of_dead_enemies > previous:
+            bonus = 0.1
+
+        malus = (- bonus) * self.steps / (self.MAX_STEPS )
+
+        # print(malus)
+
+        return malus
 
     def step(self, action):
         # send action to simulation
@@ -326,27 +327,66 @@ class PlannerEnv(gym.Env):
                 "reset reason": reset}
 
         return self._obs, step_reward, done, info
+
+    def end_of_episode(self):
+        done = False
+        reset = 'No'
+        final_reward = 0
+        current_pos = self._obs
+        # self._obs = {'Entities':self.entities, 'Enemies':self.ennemies
+        #
+        # threshold = 7.5
+        threshold = 0.5
+        num_of_enemies = self.enemies.count()
+        num_of_dead_enemies = 0
+        for enemy in self.enemies:
+            if not enemy.is_alive:
+                num_of_dead_enemies = num_of_dead_enemies + 1
+
+        if num_of_dead_enemies/num_of_enemies > threshold:
+            done = True
+            reset = 'goal achieved'
+            print('----------------', reset, '----------------')
+            nret = act_on_simulation(ascii(STOP))
+            if nret != STOP:
+                print("Couldn't stop the simulation")
+            else:
+                self.simOn = False
+            final_reward = PlannerEnv.FINAL_REWARD
+
+        self.steps += 1
+
+        return done, final_reward, reset
+
     #
-    # ex1 = {'Suicide': (0.0, 0.0, 0.0)}
-    # ex2 = {'Drone': (0.1, 0.1, 0.1)}
+    # ex1 = {'Entity:Suicide': (0.0, 0.0, 0.0)}
+    # ex2 = {'Entity:Drone': (0.1, 0.1, 0.1)}
     # _actions['MOVE_TO'].append(ex1)
     # _actions['MOVE_TO'].append(ex2)
+    #    self._actions = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}], 'TAKE_PATH':[{}]}
+
     def do_action(self, agent_action):
-    #    self._actions = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}]}
-        for act in self._actions:
-            if act==None:
-                pass
-            else:
-                if act == "MOVE_TO":
-                    for ent in
-        joymessage = Joy()
-
-        joyactions = self.AgentToJoyAction(agent_action)  # clip actions to fit action_size
-
-        joymessage.axes = [joyactions[0], 0., joyactions[2], joyactions[3], joyactions[4], joyactions[5], 0., 0.]
-
-        joymessage.buttons = 11 * [0]
-        joymessage.buttons[7] = 1  ## activation of hydraulic pump
-
-        self.joypub.publish(joymessage)
-        rospy.logdebug(joymessage)
+        for act in self._actions['MOVE_TO']:
+            if len(act) > 1:
+                for elm in act:
+                    entity = elm
+                    goal = act[elm]
+                    self.move_entity_to_goal(entity, goal)
+        for act in self._actions['LOOK_AT']:
+            if len(act) > 1:
+                for elm in act:
+                    entity = elm
+                    goal = act[elm]
+                    self.look_at_goal(entity, goal)
+        for act in self._actions['ATTACK']:
+            if len(act) > 1:
+                for elm in act:
+                    entity = elm
+                    goal = act[elm]
+                    self.attack_goal(entity, goal)
+        for act in self._actions['TAKE_PATH']:
+            if len(act) > 1:
+                for elm in act:
+                    entity = elm
+                    path = act[elm]
+                    self.take_path(entity, path)
