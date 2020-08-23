@@ -5,12 +5,15 @@
 import gym
 from gym import spaces
 import numpy as np
+import threading
 import math
 from math import pi as pi
 from scipy.spatial.transform import Rotation as R
 import sys, time
 import rclpy
 from rclpy.node import Node
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import String, Header
 from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
 from sensor_msgs.msg import Imu
@@ -84,10 +87,10 @@ class PlannerEnv(gym.Env):
     def global_pose_callback(self, msg):
         this_entity = self.get_entity(msg.id)
         if (this_entity == None):
-            self.get_logger().info('This entity "%s" is not managed yet' % msg.id)
+            self.node.get_logger().info('This entity "%s" is not managed yet' % msg.id)
             return
         this_entity.update_gpose(msg.gpose.point)
-        self.get_logger().debug('Received: "%s"' % msg)
+        self.node.get_logger().debug('Received: "%s"' % msg)
 
     def entity_description_callback(self, msg):
         a = self.Entity(msg)
@@ -100,7 +103,7 @@ class PlannerEnv(gym.Env):
         if not res:
             self.entities.append(a)
 
-        self.get_logger().debug('Received: "%s"' % msg)
+        self.node.get_logger().info('Received: "%s"' % msg)
 
     def enemy_description_callback(self, msg):
         a = self.Enemy(msg)
@@ -112,51 +115,73 @@ class PlannerEnv(gym.Env):
                 break
         if not res:
             self.enemies.append(a)
-        self.get_logger().debug('Received: "%s"' % msg)
+        self.node.get_logger().info('Received: "%s"' % msg)
 
     def entity_imu_callback(self, msg):
         this_entity = self.get_entity(msg.id)
         if (this_entity == None):
-            self.get_logger().info('This entity "%s" is not managed yet' % msg.id)
+            self.node.get_logger().info('This entity "%s" is not managed yet' % msg.id)
             return
         this_entity.update_imu(msg.imu)
-        self.get_logger().debug('Received: "%s"' % msg)
+        self.node.get_logger().debug('Received: "%s"' % msg)
 
     def entity_overall_health_callback(self, msg):
         this_entity = self.get_entity(msg.id)
         if (this_entity == None):
-            self.get_logger().info('This entity "%s" is not managed yet' % msg.id)
+            self.node.get_logger().info('This entity "%s" is not managed yet' % msg.id)
             return
         this_entity.update_health(msg.values)
-        self.get_logger().debug('Received: "%s"' % msg)
+        self.node.get_logger().debug('Received: "%s"' % msg)
 
     def move_entity_to_goal(self, entity, goal):
-        self.get_logger().info('Move entity:' + entity.id + " to position:" + goal.__str__())
+        self.node.get_logger().info('Move entity:' + entity.id + " to position:" + goal.__str__())
         msg = SGlobalPose()
         msg.gpose = goal
         msg.id = entity.id
         self.moveToPub.publish(msg)
 
     def look_at_goal(self, entity, goal):
-        self.get_logger().info('Entity:' + entity.id + " should look at:" + goal.__str__())
+        self.node.get_logger().info('Entity:' + entity.id + " should look at:" + goal.__str__())
         msg = SGlobalPose()
         msg.gpose = goal
         msg.id = entity.id
         self.lookPub.publish(msg)
 
     def take_path(self, entity, path):
-        self.get_logger().info('Entity:' + entity.id + " should take the path:" + path.name)
+        self.node.get_logger().info('Entity:' + entity.id + " should take the path:" + path.name)
         msg = SPath()
         msg.path = path
         msg.id = entity.id
         self.takePathPub.publish(msg)
 
     def attack_goal(self, entity, goal):
-        self.get_logger().info('Entity:' + entity.id + " should attack at:" + goal.__str__())
+        self.node.get_logger().info('Entity:' + entity.id + " should attack at:" + goal.__str__())
         msg = SGlobalPose()
         msg.gpose = goal
         msg.id = entity.id
         self.attackPub.publish(msg)
+
+    def thread_ros(self):
+        print("Starting thread of ros threads")
+        executor = MultiThreadedExecutor(num_threads=4)
+        executor.add_node(self.node)
+        executor.spin()
+
+    # entity1 = {'Entity:Suicide'}
+    # entity2 = {'Entity:Drone'}
+    # match_los[enemy_id].append(entity1)
+    # match_los[enemy_id].append(entity2)
+    #   match_los = {enemy_id: [{}], enemy+id: [{}],}
+    def compute_all_los(self):
+        match_los = {}
+        for enemy in self.enemies:
+            this_enemy = enemy
+            match_los[this_enemy.id] = []
+            for entity in self.entities:
+                if check_line_of_sight(this_enemy.id, entity.id):
+                    match_los[this_enemy.id].append(entity.id)
+        return match_los
+
 
     def __init__(self):
         super(PlannerEnv, self).__init__()
@@ -191,14 +216,8 @@ class PlannerEnv(gym.Env):
         self.entities = []
         self.enemies = []
 
-        try:
-            rclpy.init()
-            self.node = rclpy.create_node("planner")
-            print("Didn't get exception")
-        except RuntimeError:
-            print("Got exception")
-            pass
-
+        rclpy.init()
+        self.node = rclpy.create_node("planner")
 
         # Subscribe to topics
         self.entityPoseSub = self.node.create_subscription(SGlobalPose, '/entity/global_pose',
@@ -218,6 +237,16 @@ class PlannerEnv(gym.Env):
 
         self.num_of_dead_enemies = 0
 
+#       self.node.create_rate(10.0)
+#        rclpy.spin(self.node)
+#         executor = MultiThreadedExecutor(num_threads=4)
+#         executor.add_node(self.node)
+#         executor.spin()
+        x = threading.Thread(target=self.thread_ros, args=())
+        print("Before running thread")
+        x.start()
+
+
     def render(self, mode='human'):
         pass
 
@@ -230,9 +259,10 @@ class PlannerEnv(gym.Env):
     def update_state(self):
         entities = self.entities
         enemies = self.enemies
+        line_of_sight_mesh = self.compute_all_los()
         # Line of sight?
         # Different path
-        obs = {'entities': entities, 'enemies': enemies}
+        obs = {'entities': entities, 'enemies': enemies, 'los_mesh': line_of_sight_mesh }
         return obs
 
     def init_env(self):
@@ -269,7 +299,7 @@ class PlannerEnv(gym.Env):
             if bool(self.entities) and bool(self.enemies):  # if there is some data:
                 break
 
-        # wait for simulation to stabilize, stones stop moving
+        # wait for simulation to stabilize
         time.sleep(5)
 
         self._obs = self.get_obs()
@@ -287,16 +317,16 @@ class PlannerEnv(gym.Env):
 
     def reward_func(self):
         previous = self.num_of_dead_enemies
-        num_of_dead_enemies=0
+        num_of_dead_enemies = 0
         for enemy in self.enemies:
             if not enemy.is_alive:
                 num_of_dead_enemies = num_of_dead_enemies + 1
-        self.num_of_dead_enemies=num_of_dead_enemies
+        self.num_of_dead_enemies = num_of_dead_enemies
 
         if num_of_dead_enemies > previous:
             bonus = 0.1
 
-        malus = (- bonus) * self.steps / (self.MAX_STEPS )
+        malus = (- bonus) * self.steps / (self.MAX_STEPS)
 
         # print(malus)
 
@@ -339,13 +369,13 @@ class PlannerEnv(gym.Env):
         #
         # threshold = 7.5
         threshold = 0.5
-        num_of_enemies = self.enemies.count()
+        num_of_enemies = len(self.enemies.count)
         num_of_dead_enemies = 0
         for enemy in self.enemies:
             if not enemy.is_alive:
                 num_of_dead_enemies = num_of_dead_enemies + 1
 
-        if num_of_dead_enemies/num_of_enemies > threshold:
+        if num_of_dead_enemies / num_of_enemies > threshold:
             done = True
             reset = 'goal achieved'
             print('----------------', reset, '----------------')
@@ -374,21 +404,63 @@ class PlannerEnv(gym.Env):
                     entity = elm
                     goal = act[elm]
                     self.move_entity_to_goal(entity, goal)
+                    self._actions['TAKE_PATH'].remove(elm)
         for act in self._actions['LOOK_AT']:
             if len(act) > 1:
                 for elm in act:
                     entity = elm
                     goal = act[elm]
                     self.look_at_goal(entity, goal)
+                    self._actions['TAKE_PATH'].remove(elm)
         for act in self._actions['ATTACK']:
             if len(act) > 1:
                 for elm in act:
                     entity = elm
                     goal = act[elm]
                     self.attack_goal(entity, goal)
+                    self._actions['TAKE_PATH'].remove(elm)
         for act in self._actions['TAKE_PATH']:
             if len(act) > 1:
                 for elm in act:
                     entity = elm
                     path = act[elm]
                     self.take_path(entity, path)
+                    self._actions['TAKE_PATH'].remove(elm)
+
+    def fill(self, act_name):
+        #Make sure that no actions are left.
+        #self._actions = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}], 'TAKE_PATH': [{}]}
+        if act_name == 'action_0':
+            ex1 = {'GV1': (0.96,-0.00045, -0.00313)}
+            self._actions['TAKE_PATH'].append(ex1)
+            return True
+        if act_name == 'action_1':
+            ex1 = {'Terrain Drone': (0.96,-0.00045, -0.00313)}
+            self._actions['MOVE_TO'].append(ex1)
+            return True
+        if act_name == 'action_2':
+            ex1 = {'SUICIDE': (0.96,-0.00045, -0.00313)}
+            self._actions['MOVE_TO'].append(ex1)
+            return True
+        if act_name == 'action_3':
+            ex1 = {'Terrain Drone': (0.96,-0.00045, -0.00313)}
+            self._actions['LOOK_AT'].append(ex1)
+            return True
+        if act_name == 'action_4':
+            ex1 = {'SUICIDE': (0.96,-0.00045, -0.00313)}
+            self._actions['MOVE_TO'].append(ex1)
+            return True
+        if act_name == 'action_5':
+            ex1 = {'SUICIDE': (0.96,-0.00045, -0.00313)}
+            self._actions['MOVE_TO'].append(ex1)
+            ex1 = {'Terrain Drone': (0.96,-0.00045, -0.00313)}
+            self._actions['MOVE_TO'].append(ex1)
+            ex1 = {'GV1': (0.96, -0.00045, -0.00313)}
+            self._actions['ATTACK'].append(ex1)
+            return True
+        if act_name == 'action_6':
+            ex1 = {'GV1': (0.96, -0.00045, -0.00313)}
+            self._actions['MOVE_TO'].append(ex1)
+            ex1 = {'GV1': (0.96, -0.00045, -0.00313)}
+            self._actions['ATTACK'].append(ex1)
+            return True

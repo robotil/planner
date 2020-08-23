@@ -9,6 +9,7 @@ import time
 import numpy as np
 import tensorflow as tf
 from typing import Dict
+from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
 from keras.models import load_model
 from matplotlib import pyplot as plt
 #from tensor_board_cb import TensorboardCallback
@@ -629,15 +630,8 @@ def play(save_dir, env):
     # model = SAC.load(save_dir + '/model_dir/sac/test_6_24_17_30', env=env,
     #                  custom_objects=dict(learning_starts=0))  ### ADD NUM
 
-    x_model = load_model('/home/iaiai/git/SmartLoader/Real_agents/new_test_all_recordings_x_model_10_pred')
-    LP_model = load_model('/home/iaiai/git/SmartLoader/Real_agents/new_test_new_recordings_LP_model_10_pred')
-
-    # x_model = load_model('/home/iaiai/git/SmartLoader/Real_agents/lift_task_x_model_10_pred')
-    # LP_model = load_model('/home/iaiai/git/SmartLoader/Real_agents/lift_task_LP_model_10_pred')
-
-
     obs = env.reset()
-    push_pid = LLC_pid.PushPidAlgoryx()
+    # push_pid = LLC_pid.PushPidAlgoryx()
     # driveBack_pid = LLC_pid.DriveBackAndLiftPidAlgoryx()
     # done = False
 
@@ -647,55 +641,26 @@ def play(save_dir, env):
     #     # env.step(action)
     #     # time.sleep(0.05)
 
-        # print('x= ', obs['x_vehicle'], 'y= ', obs['y_vehicle'])
+    # Wait until there is some enemy
+    while not bool(obs['enemies']):
+        continue
+
     num_of_passes = 5
     x_end = 13
-    for pass_num in range(num_of_passes):
+    done = False
 
-        print('pass number ', pass_num)
-        done = False
-
-        while not done:
-        # while True:
-        # for _ in range(1000):
-
+    while not done:
+        for pass_num in range(num_of_passes):
+            print('pass number ', pass_num)
+            # action 0
+            act_name = 'action_'+str(pass_num)
+            action = env.fill(act_name)
             # time.sleep(0.1)
 
-            x_hmap, LP_hmap = h_map_func(obs, pass_num)
-
-            norm_x_des = x_model.predict(x_hmap.reshape(1, 1, 260, 60))
-            norm_LP_des = LP_model.predict(LP_hmap.reshape(1, 1, 50, 60))
-
-            norm_lift_des = norm_LP_des[0, np.arange(0, 20, 2)]
-            norm_pitch_des = norm_LP_des[0, np.arange(1, 20, 2)]
-
-            lift_offset = 32
-            pitch_offest = 10
-
-            lift_des = norm_lift_des[0]*140+140+lift_offset
-            pitch_des = norm_pitch_des[0]*293+220+pitch_offest
-            x_des = norm_x_des[0, 0]*30
-
-            lift = obs['arm_lift']
-            pitch = obs['arm_pitch']
-
-            # des = [x_blade, y_blade, lift, pitch]
-            des = [x_des, obs['x_vehicle'], lift_des, pitch_des]
-
-            action = push_pid.step(obs, des)
-            # if obs['y_vehicle']-x_des < 0.0
-            obs, _, done, _ = env.step(action)
+            obs, _, done, _ = env.step(action)   # zzz
             # obs = env.get_obs()
 
-            # print('des x: ', x_des, 'x: ', 30+obs['y_vehicle'], 'des lift: ', lift_des, 'lift: ', lift, 'des pitch: ', pitch_des, 'pitch: ', pitch)
-            print('des x: ', des[0], 'x: ', 30 + obs['y_vehicle'])
-            print(action)
-            if 30+obs['y_vehicle'] > x_end:#+pass_num*0.4:
-                done = True
 
-        # push_pid.lift_pid.save_plot('lift', 'lift')
-        # push_pid.pitch_pid.save_plot('pitch', 'pitch')
-        # push_pid.speed_pid.save_plot('speed', 'speed')
 
         dump_load(env,push_pid)
         move_back(env,push_pid)
@@ -730,6 +695,12 @@ def play(save_dir, env):
     #         obs, reward, done, info = env.step(action)
     #         # print('state: ', obs[0:3], 'action: ', action)
 
+# def pass_0(obs, env):
+#     # UGV goes to GV1 coordinates (0.96,-0.00045, -0.00313)
+#     gv1 = env.get_entity('GV1')
+#     coord = PointStamped(0.96,-0.00045, -0.00313)
+#     env.move_entity_to_goal(gv1, coord)
+#     return True
 
 def train(algo, policy, pretrain, n_timesteps, log_dir, model_dir, env_name, model_save_interval):
     """
@@ -835,8 +806,10 @@ def CreateLogAndModelDirs(args):
 def main(args):
     # register_policy('CnnMlpPolicy',CnnMlpPolicy)
     env_name = args.mission + '-' + args.env_ver
+#??    env = gym.make(env_name)  # .unwrapped  <= NEEDED?
+#??    print('gym env created', env_name, env)
     if args.job != 'train':
-        env = gym.make(env_name)  # .unwrapped  <= NEEDED?
+        env = gym.make(env_name)
         print('gym env created', env_name, env)
 
     save_dir, model_dir, log_dir = CreateLogAndModelDirs(args)
@@ -861,7 +834,7 @@ def main(args):
 
 def add_arguments(parser):
     parser.add_argument('--mission', type=str, default="PlannerEnv", help="The agents' task")
-    parser.add_argument('--env-ver', type=str, default="v0", help="The custom gym enviornment version")
+    parser.add_argument('--env-ver', type=str, default="v0", help="The custom gym environment version")
     parser.add_argument('--dir-pref', type=str, default="stable_bl/", help="The log and model dir prefix")
 
     parser.add_argument('-tb', '--tensorboard-log', help='Tensorboard log dir', default='/log_dir/', type=str)
@@ -869,7 +842,7 @@ def add_arguments(parser):
     parser.add_argument('--algo', help='RL Algorithm', default='sac', type=str, required=False, choices=list(ALGOS.keys()))
     parser.add_argument('--policy', help='Network topography', default='CnnMlpPolicy', type=str, required=False, choices=POLICIES)
 
-    parser.add_argument('--job', help='job to be done', default='train', type=str, required=False, choices=JOBS)
+    parser.add_argument('--job', help='job to be done', default='play', type=str, required=False, choices=JOBS)
     parser.add_argument('-n', '--n-timesteps', help='Overwrite the number of timesteps', default=int(1e6), type=int)
     parser.add_argument('--log-interval', help='Override log interval (default: -1, no change)', default=-1, type=int)
     parser.add_argument('--save-interval', help='Number of timestamps between model saves', default=2000, type=int)
