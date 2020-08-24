@@ -176,9 +176,11 @@ class PlannerEnv(gym.Env):
         match_los = {}
         for enemy in self.enemies:
             this_enemy = enemy
+            one = this_enemy.gpoint
             match_los[this_enemy.id] = []
             for entity in self.entities:
-                if check_line_of_sight(this_enemy.id, entity.id):
+                two = entity.gpoint
+                if check_line_of_sight(one, two):
                     match_los[this_enemy.id].append(entity.id)
         return match_los
 
