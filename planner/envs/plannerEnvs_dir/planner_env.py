@@ -21,11 +21,13 @@ from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped,
 from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath
 from planner.sim_admin import check_state_simulation, act_on_simulation
 from planner.sim_services import check_line_of_sight, get_all_possible_ways
+from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
 
 STOP = 0
 START = 1
 PAUSE = 2
 
+LIST_ACTIONS = ['MOVE_TO', 'LOOK_AT', 'ATTACK','TAKE_PATH']
 
 class PlannerEnv(gym.Env):
     MAX_STEPS = 200
@@ -49,12 +51,13 @@ class PlannerEnv(gym.Env):
             self.is_alive = n_enn.is_alive
 
     class Entity:
-        def __init__(self, msg):
+        def __init__(self, msg, state='Initial'):
             self.id = msg.id
             self.diagstatus = msg.diagstatus
             self.gpoint = Point()
             self.imu = Imu()
             self.health = KeyValue()
+            self.state = state
 
         def update_desc(self, n_ent):
             self.diagstatus = n_ent.diagstatus
@@ -133,32 +136,32 @@ class PlannerEnv(gym.Env):
         this_entity.update_health(msg.values)
         self.node.get_logger().debug('Received: "%s"' % msg)
 
-    def move_entity_to_goal(self, entity, goal):
-        self.node.get_logger().info('Move entity:' + entity.id + " to position:" + goal.__str__())
+    def move_entity_to_goal(self, entity_id, goal):
+        self.node.get_logger().info('Move entity:' + entity_id + " to position:" + goal.__str__())
         msg = SGlobalPose()
         msg.gpose = goal
-        msg.id = entity.id
+        msg.id = entity_id
         self.moveToPub.publish(msg)
 
-    def look_at_goal(self, entity, goal):
-        self.node.get_logger().info('Entity:' + entity.id + " should look at:" + goal.__str__())
+    def look_at_goal(self, entity_id, goal):
+        self.node.get_logger().info('Entity:' + entity_id + " should look at:" + goal.__str__())
         msg = SGlobalPose()
         msg.gpose = goal
-        msg.id = entity.id
+        msg.id = entity_id
         self.lookPub.publish(msg)
 
-    def take_path(self, entity, path):
-        self.node.get_logger().info('Entity:' + entity.id + " should take the path:" + path.name)
+    def take_path(self, entity_id, path):
+        self.node.get_logger().info('Entity:' + entity_id + " should take the path:" + path.name)
         msg = SPath()
         msg.path = path
-        msg.id = entity.id
+        msg.id = entity_id
         self.takePathPub.publish(msg)
 
-    def attack_goal(self, entity, goal):
-        self.node.get_logger().info('Entity:' + entity.id + " should attack at:" + goal.__str__())
+    def attack_goal(self, entity_id, goal):
+        self.node.get_logger().info('Entity:' + entity_id + " should attack at:" + goal.__str__())
         msg = SGlobalPose()
         msg.gpose = goal
-        msg.id = entity.id
+        msg.id = entity_id
         self.attackPub.publish(msg)
 
     def thread_ros(self):
@@ -371,7 +374,7 @@ class PlannerEnv(gym.Env):
         #
         # threshold = 7.5
         threshold = 0.5
-        num_of_enemies = len(self.enemies.count)
+        num_of_enemies = len(self.enemies)
         num_of_dead_enemies = 0
         for enemy in self.enemies:
             if not enemy.is_alive:
@@ -403,31 +406,39 @@ class PlannerEnv(gym.Env):
         for act in self._actions['MOVE_TO']:
             if len(act) > 1:
                 for elm in act:
-                    entity = elm
+                    entity_id = elm
                     goal = act[elm]
-                    self.move_entity_to_goal(entity, goal)
+                    self.move_entity_to_goal(entity_id, goal)
                     self._actions['TAKE_PATH'].remove(elm)
         for act in self._actions['LOOK_AT']:
             if len(act) > 1:
                 for elm in act:
-                    entity = elm
+                    entity_id = elm
                     goal = act[elm]
-                    self.look_at_goal(entity, goal)
+                    self.look_at_goal(entity_id, goal)
                     self._actions['TAKE_PATH'].remove(elm)
         for act in self._actions['ATTACK']:
             if len(act) > 1:
                 for elm in act:
-                    entity = elm
+                    entity_id = elm
                     goal = act[elm]
-                    self.attack_goal(entity, goal)
+                    self.attack_goal(entity_id, goal)
                     self._actions['TAKE_PATH'].remove(elm)
         for act in self._actions['TAKE_PATH']:
             if len(act) > 1:
                 for elm in act:
-                    entity = elm
+                    entity_id = elm
                     path = act[elm]
-                    self.take_path(entity, path)
+                    self.take_path(entity_id, path)
                     self._actions['TAKE_PATH'].remove(elm)
+
+    def fill_straight(self, action_type, entity_id, parameter):
+        if action_type not in LIST_ACTIONS:
+            print("Strange action requested:"+action_type)
+            return
+        todo = {entity_id: parameter}
+        self._actions[action_type].append(todo)
+
 
     def fill(self, act_name):
         #Make sure that no actions are left.

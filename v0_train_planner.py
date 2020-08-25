@@ -10,6 +10,8 @@ import numpy as np
 import tensorflow as tf
 from typing import Dict
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
+from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
+import math
 from keras.models import load_model
 from matplotlib import pyplot as plt
 #from tensor_board_cb import TensorboardCallback
@@ -623,17 +625,36 @@ def move_back(env,push_pid):
     push_pid.pitch_pid.save_plot('pitch', 'pitch')
     push_pid.speed_pid.save_plot('speed', 'speed')
 
+def dist2d(One, Two):
+    return math.sqrt((One.x - Two.x) ** 2.0 + (One.y - Two.y) ** 2.0)
+
+def dist3d(One, Two):
+    return  math.sqrt((One.x - Two.x)**2.0 + (One.y - Two.y)**2.0 + (One.z - Two.z)**2.0)
 
 def play(save_dir, env):
-    # model = SAC.load(save_dir + '/model_dir/sac/test_25_25_14_15', env=env,
-    #                  custom_objects=dict(learning_starts=0))  ### ADD NUM1
-    # model = SAC.load(save_dir + '/model_dir/sac/test_6_24_17_30', env=env,
-    #                  custom_objects=dict(learning_starts=0))  ### ADD NUM
+    at_scanner1 = Point(x=-0.000531347, y=0.001073413, z=25.4169386)
+    at_scanner2 = Point(x=-4.25E-05, y=0.000951778, z=23.7457949)
+    at_scanner3 = Point(x=0.000144236, y=0.000308294, z=23.2363825)
+
+    at_house1 = Point(x=-0.00052199, y=0.000427823, z=3.47494171)
+    at_house2 = Point(x=-0.000473681, y=0.000458237, z=3.94403081)
+    at_house3 = Point(x=-0.000422862, y=0.000418143, z=3.47494102)
+
+    at_suicide1 = Point(x=-0.000608696, y=0.000743706, z=20.2996389)
+    at_suicide2 = Point(x=-0.000177843, y=0.000730626, z=20.5166236)
+    at_suicide3 = Point(x=-0.000118638, y=0.000438844, z=19.8076561)
+
+    # ZZZZ Has to be changed with real values. They are the coordinates that the UGV should reach on path1 and path2 respectively
+    at_point1 = Point(x=-0.003262585, y=-0.00041411, z=1.01463189)
+    at_point2 = Point(x=-0.003262585, y=-0.00041411, z=1.01463189)
+
+    timer_x_period = 10
+    timer_y_period = 10
+    start_time_x = 0
+    start_time_y = 0
+    min_dist = 1
 
     obs = env.reset()
-    # push_pid = LLC_pid.PushPidAlgoryx()
-    # driveBack_pid = LLC_pid.DriveBackAndLiftPidAlgoryx()
-    # done = False
 
     # while True: ## test loop
     #     obs = env.get_obs()
@@ -645,62 +666,123 @@ def play(save_dir, env):
     while not bool(obs['enemies']):
         continue
 
-    num_of_passes = 5
-    x_end = 13
     done = False
+    # Since pre-defined scenario, let's get all the entities
+    ugv_entity = env.getEntity('UGV')
+    ugv_state = UGVLocalMachine(ugv_entity)
+    scd_entity = env.getEntity('Suicide')
+    scd_state = SuicideLocalMachine(scd_entity)
+    drn_entity = env.getEntity('SensorDrone')
+    drn_state = DroneLocalMachine(drn_entity)
+
+    # Start to move the entities
+    env.fill_straight('TAKE_PATH', 'UGV', 'Path1')
+    env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner1)
+    env.fill_straight('LOOK_AT', 'SensorDrone', at_house1)  # 444
+    env.fill_straight('MOVE_TO', 'Suicide', at_suicide1)    # 444
+
+    # Set state to each entity
+    ugv_state.phase1()
+    scd_state.phase1()
+    drn_state.phase1()
 
     while not done:
-        for pass_num in range(num_of_passes):
-            print('pass number ', pass_num)
-            # action 0
-            act_name = 'action_'+str(pass_num)
-            action = env.fill(act_name)
-            # time.sleep(0.1)
+        # for pass_num in range(num_of_passes):
+        #     print('pass number ', pass_num)
+        #     # action 0
+        #     act_name = 'action_'+str(pass_num)
+        #     action = env.fill(act_name)
+        #     # time.sleep(0.1)
 
-            obs, _, done, _ = env.step(action)   # zzz
-            # obs = env.get_obs()
+        obs, _, done, _ = env.step(action=None)   # 444
+        # obs = env.get_obs()
+        # Check if there is is dead
+        list_actual_enemies = obs['enemies']
+        for i in range(len(list_actual_enemies)):
+            if not list_actual_enemies[i].is_alive:
+                done = True
 
+        # Check if there is an enemy in line of sight
+        if bool(obs['los_mesh']):
+            nm1 = obs['los_mesh']
+            for key in nm1:
+                enemy_name = key
+                list_of_entities = nm1[key]
+                enemy = env.getEnnemy(enemy_name)
+                # Choose to attack the first enemy in the list
+                num_of_entities = len(list_of_entities)
+                if num_of_entities > 1:
+                    # Choose to shoot not to commit suicide
+                    found_ugv = False
+                    for i in range(num_of_entities):
+                        ent0 = list_of_entities[i]
+                        if env.getEntity(ent0).diagstatus.name == "UGV":
+                            env.fill_straight('ATTACK', ent0.id, enemy.gpose)
+                            found_ugv = True
+                        else:
+                            found_entity = ent0
+                    if not found_ugv:
+                        env.fill_straight('ATTACK', found_entity.id, enemy.gpose)
 
+        # Deal with scenario
+        # Take care of UGV
+        if ugv_state.is_point1:
+            if ugv_entity.gpose == at_point1: #ZZZ needs point1
+                # Reach point1
+                start_time_x = time.time()
+                ugv_state.phase2()
+        if ugv_state.is_wait1:
+                # Check time
+                right_now = time.time()
+                diff = right_now - start_time_x
+                if diff >= timer_x_period:
+                    env.fill_straight('ATTACK', 'UGV', 'West Window') #ZZZ needs coordinates
+                    ugv_state.wait2()
+                    start_time_y = time.time()
+        if ugv_state.is_wait2:
+                # Check time
+                right_now = time.time()
+                diff = right_now - start_time_y
+                if diff >= timer_y_period:
+                    env.fill_straight('TAKE_PATH', 'UGV', 'Path2') #ZZZ needs goal
+                    ugv_state.phase2()
+        if ugv_state.is_point2:
+            if ugv_entity.gpose == at_point2: #ZZZ needs Point2
+                # Reach Point2
+                # What to do?
+                done = True
 
-        dump_load(env,push_pid)
-        move_back(env,push_pid)
-    # done = False
-    # env.ref_pos = env._start_pos
-    #
-    # while not done:
-    #     x_hmap, LP_hmap = h_map_func(obs)
-    #
-    #     norm_x_des = x_model.predict(x_hmap.reshape(1, 1, 260, 60))
-    #     norm_LP_des = LP_model.predict(LP_hmap.reshape(1, 1, 50, 60))
-    #
-    #     norm_lift_des = norm_LP_des[0, np.arange(0, 20, 2)]
-    #     norm_pitch_des = norm_LP_des[0, np.arange(1, 20, 2)]
-    #
-    #     lift_des = norm_lift_des[0]*140+140
-    #     pitch_des = norm_pitch_des[0]*293+220
-    #     x_des = norm_x_des[0, 0]*260
-    #
-    #     des = [x_des, obs['y_vehicle'], lift_des, pitch_des]
-    #
-    #     action = push_pid.step(obs, des)
-    #
-    #     obs, _, done, _ = env.step(action)
+        # Take care of suicide
+        if scd_state.is_suicide1:
+            if scd_entity.gpose == at_suicide1:
+                env.fill_straight('MOVE_TO', 'Suicide', at_suicide2)
+                scd_state.phase2()
+        if scd_state.is_suicide2:
+            if scd_entity.gpose == at_suicide2:
+                env.fill_straight('MOVE_TO', 'Suicide', at_suicide3)
+                scd_state.phase3()
+        if scd_state.is_suicide3:
+            if scd_entity.gpose == at_suicide3:
+                env.fill_straight('MOVE_TO', 'Suicide', at_suicide1)
+                scd_state.phase4()
 
-    # for _ in range(2):
-    #
-    #     obs = env.reset()
-    #     done = False
-    #     while not done:
-    #         action, _states = model.predict(obs)
-    #         obs, reward, done, info = env.step(action)
-    #         # print('state: ', obs[0:3], 'action: ', action)
+        # Take care of drone
+        if drn_state.is_scanner1:
+            if scd_entity.gpose == at_scanner1:
+                env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner2)
+                env.fill_straight('LOOK_AT', 'SensorDrone', at_house2)
+                scd_state.phase2()
+        if scd_state.is_scanner2:
+            if scd_entity.gpose == at_scanner2:
+                env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner3)
+                env.fill_straight('LOOK_AT', 'SensorDrone', at_house3)
+                scd_state.phase3()
+        if scd_state.is_scanner3:
+            if scd_entity.gpose == at_scanner3:
+                env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner1)
+                env.fill_straight('LOOK_AT', 'SensorDrone', at_house1)
+                scd_state.phase4()
 
-# def pass_0(obs, env):
-#     # UGV goes to GV1 coordinates (0.96,-0.00045, -0.00313)
-#     gv1 = env.get_entity('GV1')
-#     coord = PointStamped(0.96,-0.00045, -0.00313)
-#     env.move_entity_to_goal(gv1, coord)
-#     return True
 
 def train(algo, policy, pretrain, n_timesteps, log_dir, model_dir, env_name, model_save_interval):
     """
