@@ -20,10 +20,13 @@ class SuicideLocalMachine(StateMachine):
     suicide2 = State('Suicide2')
     suicide3 = State('Suicide3')
 
-    phase1 = initial.to(suicide1)
+    # Used: phase_i_2, phase3, phase4
+    phase_i_1 = initial.to(suicide1)
+    phase_i_2 = initial.to(suicide2)
     phase2 = suicide1.to(suicide2)
     phase3 = suicide2.to(suicide3)
-    phase4 = suicide3.to(suicide1)
+    phase4 = suicide3.to(suicide2)
+
 
 class DroneLocalMachine(StateMachine):
     initial = State('Initial', initial=True)
@@ -33,5 +36,7 @@ class DroneLocalMachine(StateMachine):
 
     phase1 = initial.to(scanner1)
     phase2 = scanner1.to(scanner2)
-    phase3 = scanner2.to(scanner3)
-    phase4 = scanner3.to(scanner1)
+    phase3 = scanner2.to(scanner1)
+    ### phase 4 & 5 are provision to future
+    phase4 = scanner2.to(scanner3)
+    phase5 = scanner3.to(scanner1)

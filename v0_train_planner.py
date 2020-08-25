@@ -666,7 +666,6 @@ def play(save_dir, env):
     while not bool(obs['enemies']):
         continue
 
-    done = False
     # Since pre-defined scenario, let's get all the entities
     ugv_entity = env.getEntity('UGV')
     ugv_state = UGVLocalMachine(ugv_entity)
@@ -679,13 +678,14 @@ def play(save_dir, env):
     env.fill_straight('TAKE_PATH', 'UGV', 'Path1')
     env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner1)
     env.fill_straight('LOOK_AT', 'SensorDrone', at_house1)  # 444
-    env.fill_straight('MOVE_TO', 'Suicide', at_suicide1)    # 444
+    env.fill_straight('MOVE_TO', 'Suicide', at_suicide2)    # 444
 
     # Set state to each entity
     ugv_state.phase1()
-    scd_state.phase1()
     drn_state.phase1()
+    scd_state.phase_i_2()
 
+    done = False
     while not done:
         # for pass_num in range(num_of_passes):
         #     print('pass number ', pass_num)
@@ -727,11 +727,11 @@ def play(save_dir, env):
         # Deal with scenario
         # Take care of UGV
         if ugv_state.is_point1:
-            if ugv_entity.gpose == at_point1: #ZZZ needs point1
+            if dist3d(ugv_entity.gpose, at_point1) <= min_dist: #ZZZ needs point1
                 # Reach point1
                 start_time_x = time.time()
                 ugv_state.phase2()
-        if ugv_state.is_wait1:
+        elif ugv_state.is_wait1:
                 # Check time
                 right_now = time.time()
                 diff = right_now - start_time_x
@@ -739,32 +739,32 @@ def play(save_dir, env):
                     env.fill_straight('ATTACK', 'UGV', 'West Window') #ZZZ needs coordinates
                     ugv_state.wait2()
                     start_time_y = time.time()
-        if ugv_state.is_wait2:
+        elif ugv_state.is_wait2:
                 # Check time
                 right_now = time.time()
                 diff = right_now - start_time_y
                 if diff >= timer_y_period:
                     env.fill_straight('TAKE_PATH', 'UGV', 'Path2') #ZZZ needs goal
                     ugv_state.phase2()
-        if ugv_state.is_point2:
-            if ugv_entity.gpose == at_point2: #ZZZ needs Point2
+        elif ugv_state.is_point2:
+            if dist3d(ugv_entity.gpose, at_point2) <= min_dist: #ZZZ needs Point2
                 # Reach Point2
                 # What to do?
                 done = True
 
         # Take care of suicide
-        if scd_state.is_suicide1:
+        if scd_state.is_suicide2:
+            if dist3d(scd_entity.gpose, at_suicide2) <= min_dist:
+                env.fill_straight('MOVE_TO', 'Suicide', at_suicide3)
+                scd_state.phase3()
+        elif scd_state.is_suicide3:
+            if scd_entity.gpose == at_suicide3:
+                env.fill_straight('MOVE_TO', 'Suicide', at_suicide2)
+                scd_state.phase4()
+        elif scd_state.is_suicide1: ## Shouldn't happen
             if scd_entity.gpose == at_suicide1:
                 env.fill_straight('MOVE_TO', 'Suicide', at_suicide2)
                 scd_state.phase2()
-        if scd_state.is_suicide2:
-            if scd_entity.gpose == at_suicide2:
-                env.fill_straight('MOVE_TO', 'Suicide', at_suicide3)
-                scd_state.phase3()
-        if scd_state.is_suicide3:
-            if scd_entity.gpose == at_suicide3:
-                env.fill_straight('MOVE_TO', 'Suicide', at_suicide1)
-                scd_state.phase4()
 
         # Take care of drone
         if drn_state.is_scanner1:
@@ -772,15 +772,15 @@ def play(save_dir, env):
                 env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner2)
                 env.fill_straight('LOOK_AT', 'SensorDrone', at_house2)
                 scd_state.phase2()
-        if scd_state.is_scanner2:
+        elif scd_state.is_scanner2:
             if scd_entity.gpose == at_scanner2:
                 env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner3)
                 env.fill_straight('LOOK_AT', 'SensorDrone', at_house3)
                 scd_state.phase3()
-        if scd_state.is_scanner3:
+        elif scd_state.is_scanner3:
             if scd_entity.gpose == at_scanner3:
-                env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner1)
-                env.fill_straight('LOOK_AT', 'SensorDrone', at_house1)
+                env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner2)
+                env.fill_straight('LOOK_AT', 'SensorDrone', at_house2)
                 scd_state.phase4()
 
 
