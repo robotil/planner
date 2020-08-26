@@ -648,10 +648,12 @@ def play(save_dir, env):
     at_point1 = Point(x=-0.003262585, y=-0.00041411, z=1.01463189)
     at_point2 = Point(x=-0.003262585, y=-0.00041411, z=1.01463189)
 
-    timer_x_period = 10
-    timer_y_period = 10
+    timer_x_period = 10 # First timer UGV
+    timer_y_period = 10 # Second timer UGV
+    timer_zz_period = 10 # Timer for suicide sent to seen enemy
     start_time_x = 0
     start_time_y = 0
+    start_time_zz = 0
     min_dist = 1
 
     obs = env.reset()
@@ -712,17 +714,32 @@ def play(save_dir, env):
                 # Choose to attack the first enemy in the list
                 num_of_entities = len(list_of_entities)
                 if num_of_entities > 1:
-                    # Choose to shoot not to commit suicide
-                    found_ugv = False
+                    # Choose first to shoot if possible
+                    found_ugv, found_suicide, found_scan = False
                     for i in range(num_of_entities):
                         ent0 = list_of_entities[i]
                         if env.getEntity(ent0).diagstatus.name == "UGV":
+                            # We can shoot
                             env.fill_straight('ATTACK', ent0.id, enemy.gpose)
                             found_ugv = True
+                        elif env.getEntity(ent0).diagstatus.name == "Suicide":
+                            # We can commit suicide
+                            found_suicide = True
+                            suicide_entity = ent0
                         else:
-                            found_entity = ent0
+                            found_scan = True
                     if not found_ugv:
-                        env.fill_straight('ATTACK', found_entity.id, enemy.gpose)
+                        # We cannot shoot
+                        if found_suicide:
+                            env.fill_straight('ATTACK', suicide_entity.id, enemy.gpose)
+                        elif found_scan:
+                            # Tell suicide to get close to the enemy so that it will be able
+                            # to attack him eventually
+                            env.fill_straight('MOVE_TO', 'Suicide', enemy.gpose)
+                            suicide_entity.state = 'SuicideZZ'
+                            start_time_zz = time.time()
+
+
 
         # Deal with scenario
         # Take care of UGV
@@ -767,6 +784,13 @@ def play(save_dir, env):
             if dist3d(scd_entity.gpose, at_suicide1) <= min_dist:
                 env.fill_straight('MOVE_TO', 'Suicide', at_suicide2)
                 scd_state.phase2()
+        elif scd_state.is_suicideZZ: ## Was asked to get close to enemy
+            right_now = time.time()
+            diff = right_now - start_time_zz
+            if diff >= timer_zz_period:
+                env.fill_straight('MOVE_TO', 'Suicide', at_suicide3)
+                scd_state.phaseZZ_3()
+
 
         # Take care of drone
         if drn_state.is_scanner1:

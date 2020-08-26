@@ -19,6 +19,7 @@ class SuicideLocalMachine(StateMachine):
     suicide1 = State('Suicide1')
     suicide2 = State('Suicide2')
     suicide3 = State('Suicide3')
+    suicideZZ = State('SuicideZZ')
 
     # Used: phase_i_2, phase3, phase4
     phase_i_1 = initial.to(suicide1)
@@ -26,6 +27,7 @@ class SuicideLocalMachine(StateMachine):
     phase2 = suicide1.to(suicide2)
     phase3 = suicide2.to(suicide3)
     phase4 = suicide3.to(suicide2)
+    phaseZZ_3 = suicideZZ.to(suicide3)
 
 
 class DroneLocalMachine(StateMachine):
