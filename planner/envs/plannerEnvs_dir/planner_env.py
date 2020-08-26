@@ -18,7 +18,7 @@ from std_msgs.msg import String, Header
 from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
-from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath
+from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath, SGoalAndPath
 from planner.sim_admin import check_state_simulation, act_on_simulation
 from planner.sim_services import check_line_of_sight, get_all_possible_ways
 from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
@@ -51,7 +51,7 @@ class PlannerEnv(gym.Env):
             self.is_alive = n_enn.is_alive
 
     class Entity:
-        def __init__(self, msg, state='Initial'):
+        def __init__(self, msg, state='zero'):
             self.id = msg.id
             self.diagstatus = msg.diagstatus
             self.gpoint = Point()
@@ -150,12 +150,20 @@ class PlannerEnv(gym.Env):
         msg.id = entity_id
         self.lookPub.publish(msg)
 
-    def take_path(self, entity_id, path):
-        self.node.get_logger().info('Entity:' + entity_id + " should take the path:" + path.name)
-        msg = SPath()
-        msg.path = path
+    # def take_path(self, entity_id, path):
+    #     self.node.get_logger().info('Entity:' + entity_id + " should take the path:" + path.name)
+    #     msg = SPath()
+    #     msg.path = path
+    #     msg.id = entity_id
+    #     self.takePathPub.publish(msg)
+
+    def take_goal_path(self, entity_id, path, goal):
+        self.node.get_logger().info('Entity:' + entity_id + " should take the path:" + path.name + " to reach: "+ goal)
+        msg = SGoalAndPath()
+        msg.goal = goal #Point
+        msg.path = path #OPath
         msg.id = entity_id
-        self.takePathPub.publish(msg)
+        self.takeGoalPathPub.publish(msg)
 
     def attack_goal(self, entity_id, goal):
         self.node.get_logger().info('Entity:' + entity_id + " should attack at:" + goal.__str__())
@@ -239,7 +247,7 @@ class PlannerEnv(gym.Env):
         self.attackPub = self.node.create_publisher(SGlobalPose, '/entity/attack/goal', 10)
         self.lookPub = self.node.create_publisher(SGlobalPose, '/entity/look/goal', 10)
         self.takePathPub = self.node.create_publisher(SPath, '/entity/takepath', 10)
-
+        self.takeGoalPathPub = self.node.create_publisher(SGoalAndPath, '/entity/followpath/goal', 10)
         self.num_of_dead_enemies = 0
 
 #       self.node.create_rate(10.0)
@@ -301,11 +309,13 @@ class PlannerEnv(gym.Env):
 
         # wait for simulation to set up
         while True:  # wait for all topics to arrive
-            if bool(self.entities) and bool(self.enemies):  # if there is some data:
+            if bool(self.entities):  # if there is some data:
                 break
+#            if bool(self.entities) and bool(self.enemies):  # if there is some data:
+
 
         # wait for simulation to stabilize
-        time.sleep(5)
+        #time.sleep(5)
 
         self._obs = self.get_obs()
         return self._obs
@@ -360,7 +370,7 @@ class PlannerEnv(gym.Env):
             self.entities = {}
             print('Done ')
 
-        info = {"state": self.obs, "action": action, "reward": self.total_reward, "step": self.steps,
+        info = {"state": self._obs, "action": action, "reward": self.total_reward, "step": self.steps,
                 "reset reason": reset}
 
         return self._obs, step_reward, done, info
@@ -406,33 +416,41 @@ class PlannerEnv(gym.Env):
         for act in self._actions['MOVE_TO']:
             if len(act) > 1:
                 for elm in act:
-                    entity_id = elm
-                    goal = act[elm]
+                    entity_id = elm.popitem()[0] #get key of dictionary
+                    goal = PointStamped()
+                    goal.point = elm[entity_id]
                     self.move_entity_to_goal(entity_id, goal)
-                    self._actions['TAKE_PATH'].remove(elm)
+                    self._actions['MOVE_TO'].remove(elm)
         for act in self._actions['LOOK_AT']:
             if len(act) > 1:
                 for elm in act:
-                    entity_id = elm
-                    goal = act[elm]
+                    entity_id = elm.popitem()[0] #get key of dictionary
+                    goal = PointStamped()
+                    goal.point = elm[entity_id]
                     self.look_at_goal(entity_id, goal)
-                    self._actions['TAKE_PATH'].remove(elm)
+                    self._actions['LOOK_AT'].remove(elm)
         for act in self._actions['ATTACK']:
             if len(act) > 1:
                 for elm in act:
-                    entity_id = elm
-                    goal = act[elm]
+                    entity_id = elm.popitem()[0] #get key of dictionary
+                    goal = PointStamped()
+                    goal.point = elm[entity_id]
                     self.attack_goal(entity_id, goal)
-                    self._actions['TAKE_PATH'].remove(elm)
+                    self._actions['ATTACK'].remove(elm)
         for act in self._actions['TAKE_PATH']:
             if len(act) > 1:
                 for elm in act:
-                    entity_id = elm
-                    path = act[elm]
-                    self.take_path(entity_id, path)
+                    entity_id = elm.popitem()[0] #get key of dictionary
+                    path_name = elm[entity_id][0]
+                    path = OPath()
+                    path.name = path_name
+                    # Here goal is Point
+                    goal_point = elm[entity_id][1]
+                    self.take_goal_path(entity_id, path, goal_point)
                     self._actions['TAKE_PATH'].remove(elm)
 
     def fill_straight(self, action_type, entity_id, parameter):
+        # Parameter is a tupple
         if action_type not in LIST_ACTIONS:
             print("Strange action requested:"+action_type)
             return
@@ -441,39 +459,48 @@ class PlannerEnv(gym.Env):
 
 
     def fill(self, act_name):
-        #Make sure that no actions are left.
         #self._actions = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}], 'TAKE_PATH': [{}]}
         if act_name == 'action_0':
-            ex1 = {'GV1': (0.96,-0.00045, -0.00313)}
+            goal = Point(x=0.96,y=-0.00045,z= -0.00313)
+            ex1 = {'UGV': ('Path1', goal)}
             self._actions['TAKE_PATH'].append(ex1)
             return True
         if act_name == 'action_1':
-            ex1 = {'Terrain Drone': (0.96,-0.00045, -0.00313)}
+            goal = Point(x=0.96,y=-0.00045,z= -0.00313)
+            ex1 = {'SensorDrone': (goal)}
             self._actions['MOVE_TO'].append(ex1)
             return True
         if act_name == 'action_2':
-            ex1 = {'SUICIDE': (0.96,-0.00045, -0.00313)}
+            goal = Point(x=0.96, y=-0.0, z=1.2)
+            ex1 = {'Suicide': (goal)}
             self._actions['MOVE_TO'].append(ex1)
             return True
         if act_name == 'action_3':
-            ex1 = {'Terrain Drone': (0.96,-0.00045, -0.00313)}
+            goal = Point(x=0.96,y=-0.00045,z= -0.00313)
+            ex1 = {'SensorDrone': (0.96,-0.00045, -0.00313)}
             self._actions['LOOK_AT'].append(ex1)
             return True
         if act_name == 'action_4':
-            ex1 = {'SUICIDE': (0.96,-0.00045, -0.00313)}
+            goal = Point(x=0.96,y=-0.00045,z= -0.00313)
+            ex1 = {'Suicide': (goal)}
             self._actions['MOVE_TO'].append(ex1)
             return True
         if act_name == 'action_5':
-            ex1 = {'SUICIDE': (0.96,-0.00045, -0.00313)}
+            goal = Point(x=0.96,y=-0.00045,z= -0.00313)
+            ex1 = {'Suicide': (goal)}
             self._actions['MOVE_TO'].append(ex1)
-            ex1 = {'Terrain Drone': (0.96,-0.00045, -0.00313)}
+            goal = Point(x=0.96,y=-0.00045,z= -0.00313)
+            ex1 = {'SensorDrone': (goal)}
             self._actions['MOVE_TO'].append(ex1)
-            ex1 = {'GV1': (0.96, -0.00045, -0.00313)}
+            goal = Point(x=0.96,y=-0.00045,z= -0.00313)
+            ex1 = {'UGV': (goal)}
             self._actions['ATTACK'].append(ex1)
             return True
         if act_name == 'action_6':
-            ex1 = {'GV1': (0.96, -0.00045, -0.00313)}
+            goal = Point(x=0.96, y=-0.00045, z=-0.00313)
+            ex1 = {'UGV': (goal)}
             self._actions['MOVE_TO'].append(ex1)
-            ex1 = {'GV1': (0.96, -0.00045, -0.00313)}
+            goal = Point(x=0.96, y=-0.00045, z=-0.00313)
+            ex1 = {'UGV': (goal)}
             self._actions['ATTACK'].append(ex1)
             return True
