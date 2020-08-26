@@ -413,6 +413,7 @@ class PlannerEnv(gym.Env):
     #    self._actions = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}], 'TAKE_PATH':[{}]}
 
     def do_action(self, agent_action):
+        self._actions = agent_action
         for act in self._actions['MOVE_TO']:
             if len(act) > 1:
                 for elm in act:

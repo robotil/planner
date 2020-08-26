@@ -631,7 +631,13 @@ def dist2d(One, Two):
 def dist3d(One, Two):
     return  math.sqrt((One.x - Two.x)**2.0 + (One.y - Two.y)**2.0 + (One.z - Two.z)**2.0)
 
+def add_action(action_list, action_type, entity_id, parameter):
+    # Parameter is a tupple
+    todo = {entity_id: parameter}
+    action_list[action_type].append(todo)
+
 def play(save_dir, env):
+    action_list = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}], 'TAKE_PATH': [{}]}
     at_scanner1 = Point(x=-0.000531347, y=0.001073413, z=25.4169386)
     at_scanner2 = Point(x=-4.25E-05, y=0.000951778, z=23.7457949)
     at_scanner3 = Point(x=0.000144236, y=0.000308294, z=23.2363825)
@@ -669,18 +675,18 @@ def play(save_dir, env):
         continue
 
     # Since pre-defined scenario, let's get all the entities
-    ugv_entity = env.getEntity('UGV')
+    ugv_entity = env.get_entity('UGV')
     ugv_state = UGVLocalMachine(ugv_entity)
-    scd_entity = env.getEntity('Suicide')
+    scd_entity = env.get_entity('Suicide')
     scd_state = SuicideLocalMachine(scd_entity)
-    drn_entity = env.getEntity('SensorDrone')
+    drn_entity = env.get_entity('SensorDrone')
     drn_state = DroneLocalMachine(drn_entity)
 
     # Start to move the entities
-    env.fill_straight('TAKE_PATH', 'UGV', 'Path1')
-    env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner1)
-    env.fill_straight('LOOK_AT', 'SensorDrone', at_house1)  # 444
-    env.fill_straight('MOVE_TO', 'Suicide', at_suicide2)    # 444
+    add_action(action_list, 'TAKE_PATH', 'UGV', ('Path1', Point())) # 444
+    add_action(action_list,'MOVE_TO', 'SensorDrone', (at_scanner1))
+    add_action(action_list,'LOOK_AT', 'SensorDrone', (at_house1))  # 444
+    add_action(action_list,'MOVE_TO', 'Suicide', (at_suicide2))    # 444
 
     # Set state to each entity
     ugv_state.phase1()
@@ -688,6 +694,7 @@ def play(save_dir, env):
     scd_state.phase_i_2()
 
     done = False
+
     while not done:
         # for pass_num in range(num_of_passes):
         #     print('pass number ', pass_num)
@@ -696,7 +703,7 @@ def play(save_dir, env):
         #     action = env.fill(act_name)
         #     # time.sleep(0.1)
 
-        obs, _, done, _ = env.step(action=None)   # 444
+        obs, _, done, _ = env.step(action_list)   # 444
         # obs = env.get_obs()
         # Check if there is is dead
         list_actual_enemies = obs['enemies']
@@ -710,7 +717,7 @@ def play(save_dir, env):
             for key in nm1:
                 enemy_name = key
                 list_of_entities = nm1[key]
-                enemy = env.getEnnemy(enemy_name)
+                enemy = env.get_enemy(enemy_name)
                 # Choose to attack the first enemy in the list
                 num_of_entities = len(list_of_entities)
                 if num_of_entities > 1:
@@ -718,11 +725,11 @@ def play(save_dir, env):
                     found_ugv, found_suicide, found_scan = False
                     for i in range(num_of_entities):
                         ent0 = list_of_entities[i]
-                        if env.getEntity(ent0).diagstatus.name == "UGV":
+                        if env.get_entity(ent0).diagstatus.name == "UGV":
                             # We can shoot
-                            env.fill_straight('ATTACK', ent0.id, enemy.gpose)
+                            add_action(action_list,'ATTACK', ent0.id, (enemy.gpose))
                             found_ugv = True
-                        elif env.getEntity(ent0).diagstatus.name == "Suicide":
+                        elif env.get_entity(ent0).diagstatus.name == "Suicide":
                             # We can commit suicide
                             found_suicide = True
                             suicide_entity = ent0
@@ -731,12 +738,17 @@ def play(save_dir, env):
                     if not found_ugv:
                         # We cannot shoot
                         if found_suicide:
-                            env.fill_straight('ATTACK', suicide_entity.id, enemy.gpose)
+                            add_action(action_list,'ATTACK', suicide_entity.id, (enemy.gpose))
                         elif found_scan:
                             # Tell suicide to get close to the enemy so that it will be able
                             # to attack him eventually
-                            env.fill_straight('MOVE_TO', 'Suicide', enemy.gpose)
-                            suicide_entity.state = 'SuicideZZ'
+                            add_action(action_list,'MOVE_TO', 'Suicide', (enemy.gpose))
+                            if scd_state.is_suicide2:
+                                scd_state.phase2_ZZ()
+                            elif scd_state.is_suicide3:
+                                scd_state.phase3_ZZ()
+                            else:
+                                print("Strange state for Suicide")
                             start_time_zz = time.time()
 
 
@@ -753,7 +765,7 @@ def play(save_dir, env):
                 right_now = time.time()
                 diff = right_now - start_time_x
                 if diff >= timer_x_period:
-                    env.fill_straight('ATTACK', 'UGV', 'West Window') #ZZZ needs coordinates
+                    add_action(action_list,'ATTACK', 'UGV', ('West Window')) #ZZZ needs coordinates
                     ugv_state.wait2()
                     start_time_y = time.time()
         elif ugv_state.is_wait2:
@@ -761,7 +773,7 @@ def play(save_dir, env):
                 right_now = time.time()
                 diff = right_now - start_time_y
                 if diff >= timer_y_period:
-                    env.fill_straight('TAKE_PATH', 'UGV', 'Path2') #ZZZ needs goal
+                    add_action(action_list,'TAKE_PATH', 'UGV', ('Path2', Point())) #ZZZ needs goal
                     ugv_state.phase2()
         elif ugv_state.is_point2:
             if dist3d(ugv_entity.gpose, at_point2) <= min_dist: #ZZZ needs Point2
@@ -773,22 +785,22 @@ def play(save_dir, env):
         if scd_state.is_suicide2:
             if dist3d(scd_entity.gpose, at_suicide2) <= min_dist:
                 if dist3d(scd_entity.gpose, at_scanner1) <= 2*min_dist:
-                    env.fill_straight('MOVE_TO', 'Suicide', at_suicide3)
+                    add_action(action_list,'MOVE_TO', 'Suicide', (at_suicide3))
                     scd_state.phase3()
         elif scd_state.is_suicide3:
             if dist3d(scd_entity.gpose, at_suicide3) <= min_dist:
                 if dist3d(scd_entity.gpose, at_scanner2) <= 2*min_dist:
-                    env.fill_straight('MOVE_TO', 'Suicide', at_suicide2)
+                    add_action(action_list,'MOVE_TO', 'Suicide', (at_suicide2))
                     scd_state.phase4()
         elif scd_state.is_suicide1: ## Shouldn't happen
             if dist3d(scd_entity.gpose, at_suicide1) <= min_dist:
-                env.fill_straight('MOVE_TO', 'Suicide', at_suicide2)
+                add_action(action_list,'MOVE_TO', 'Suicide', (at_suicide2))
                 scd_state.phase2()
         elif scd_state.is_suicideZZ: ## Was asked to get close to enemy
             right_now = time.time()
             diff = right_now - start_time_zz
             if diff >= timer_zz_period:
-                env.fill_straight('MOVE_TO', 'Suicide', at_suicide3)
+                add_action(action_list,'MOVE_TO', 'Suicide', (at_suicide3))
                 scd_state.phaseZZ_3()
 
 
@@ -796,19 +808,19 @@ def play(save_dir, env):
         if drn_state.is_scanner1:
             if dist3d(scd_entity.gpose, at_scanner1) <= min_dist:
                 if dist3d(scd_entity.gpose, at_suicide2) <= 2*min_dist:
-                    env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner2)
-                    env.fill_straight('LOOK_AT', 'SensorDrone', at_house2)
+                    add_action(action_list,'MOVE_TO', 'SensorDrone', (at_scanner2))
+                    add_action(action_list,'LOOK_AT', 'SensorDrone', (at_house2))
                     scd_state.phase2()
         elif scd_state.is_scanner2:
             if dist3d(scd_entity.gpose, at_scanner2) <= min_dist:
                 if dist3d(scd_entity.gpose, at_suicide3) <= 2*min_dist:
-                    env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner1)
-                    env.fill_straight('LOOK_AT', 'SensorDrone', at_house1)
+                    add_action(action_list,'MOVE_TO', 'SensorDrone', (at_scanner1))
+                    add_action(action_list,'LOOK_AT', 'SensorDrone', (at_house1))
                     scd_state.phase3()
         elif scd_state.is_scanner3:## Shouldn't happen
             if dist3d(scd_entity.gpose, at_scanner3) <= min_dist:
-                env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner1)
-                env.fill_straight('LOOK_AT', 'SensorDrone', at_house1)
+                add_action(action_list,'MOVE_TO', 'SensorDrone', (at_scanner1))
+                add_action(action_list,'LOOK_AT', 'SensorDrone', (at_house1))
                 scd_state.phase5()
 
 
