@@ -655,6 +655,8 @@ def play(save_dir, env):
     # ZZZZ Has to be changed with real values. They are the coordinates that the UGV should reach on path1 and path2 respectively
     at_point1 = Point(x=-0.003262585, y=-0.00041411, z=1.01463189)
     at_point2 = Point(x=-0.003262585, y=-0.00041411, z=1.01463189)
+    at_window1 = Point(x=-0.000501812, y= 0.000386798, z=3.95291735)
+
 
     timer_x_period = 10 # First timer UGV
     timer_y_period = 10 # Second timer UGV
@@ -769,7 +771,7 @@ def play(save_dir, env):
                 right_now = time.time()
                 diff = right_now - start_time_x
                 if diff >= timer_x_period:
-                    add_action(action_list,'ATTACK', 'UGV', ('West Window')) #ZZZ needs coordinates
+                    add_action(action_list,'ATTACK', 'UGV', (at_window1))
                     ugv_state.wait2()
                     start_time_y = time.time()
         elif ugv_state.is_wait2:
