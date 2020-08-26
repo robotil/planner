@@ -755,33 +755,37 @@ def play(save_dir, env):
         # Take care of suicide
         if scd_state.is_suicide2:
             if dist3d(scd_entity.gpose, at_suicide2) <= min_dist:
-                env.fill_straight('MOVE_TO', 'Suicide', at_suicide3)
-                scd_state.phase3()
+                if dist3d(scd_entity.gpose, at_scanner1) <= 2*min_dist:
+                    env.fill_straight('MOVE_TO', 'Suicide', at_suicide3)
+                    scd_state.phase3()
         elif scd_state.is_suicide3:
-            if scd_entity.gpose == at_suicide3:
-                env.fill_straight('MOVE_TO', 'Suicide', at_suicide2)
-                scd_state.phase4()
+            if dist3d(scd_entity.gpose, at_suicide3) <= min_dist:
+                if dist3d(scd_entity.gpose, at_scanner2) <= 2*min_dist:
+                    env.fill_straight('MOVE_TO', 'Suicide', at_suicide2)
+                    scd_state.phase4()
         elif scd_state.is_suicide1: ## Shouldn't happen
-            if scd_entity.gpose == at_suicide1:
+            if dist3d(scd_entity.gpose, at_suicide1) <= min_dist:
                 env.fill_straight('MOVE_TO', 'Suicide', at_suicide2)
                 scd_state.phase2()
 
         # Take care of drone
         if drn_state.is_scanner1:
-            if scd_entity.gpose == at_scanner1:
-                env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner2)
-                env.fill_straight('LOOK_AT', 'SensorDrone', at_house2)
-                scd_state.phase2()
+            if dist3d(scd_entity.gpose, at_scanner1) <= min_dist:
+                if dist3d(scd_entity.gpose, at_suicide2) <= 2*min_dist:
+                    env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner2)
+                    env.fill_straight('LOOK_AT', 'SensorDrone', at_house2)
+                    scd_state.phase2()
         elif scd_state.is_scanner2:
-            if scd_entity.gpose == at_scanner2:
-                env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner3)
-                env.fill_straight('LOOK_AT', 'SensorDrone', at_house3)
-                scd_state.phase3()
-        elif scd_state.is_scanner3:
-            if scd_entity.gpose == at_scanner3:
-                env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner2)
-                env.fill_straight('LOOK_AT', 'SensorDrone', at_house2)
-                scd_state.phase4()
+            if dist3d(scd_entity.gpose, at_scanner2) <= min_dist:
+                if dist3d(scd_entity.gpose, at_suicide3) <= 2*min_dist:
+                    env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner1)
+                    env.fill_straight('LOOK_AT', 'SensorDrone', at_house1)
+                    scd_state.phase3()
+        elif scd_state.is_scanner3:## Shouldn't happen
+            if dist3d(scd_entity.gpose, at_scanner3) <= min_dist:
+                env.fill_straight('MOVE_TO', 'SensorDrone', at_scanner1)
+                env.fill_straight('LOOK_AT', 'SensorDrone', at_house1)
+                scd_state.phase5()
 
 
 def train(algo, policy, pretrain, n_timesteps, log_dir, model_dir, env_name, model_save_interval):
