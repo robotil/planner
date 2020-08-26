@@ -637,7 +637,9 @@ def add_action(action_list, action_type, entity_id, parameter):
     action_list[action_type].append(todo)
 
 def play(save_dir, env):
-    action_list = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}], 'TAKE_PATH': [{}]}
+   # action_list = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}], 'TAKE_PATH': [{}]}
+    action_list = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
+
     at_scanner1 = Point(x=-0.000531347, y=0.001073413, z=25.4169386)
     at_scanner2 = Point(x=-4.25E-05, y=0.000951778, z=23.7457949)
     at_scanner3 = Point(x=0.000144236, y=0.000308294, z=23.2363825)
@@ -722,7 +724,9 @@ def play(save_dir, env):
                 num_of_entities = len(list_of_entities)
                 if num_of_entities > 1:
                     # Choose first to shoot if possible
-                    found_ugv, found_suicide, found_scan = False
+                    found_ugv = False
+                    found_suicide = False
+                    found_scan = False
                     for i in range(num_of_entities):
                         ent0 = list_of_entities[i]
                         if env.get_entity(ent0).diagstatus.name == "UGV":

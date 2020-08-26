@@ -223,7 +223,7 @@ class PlannerEnv(gym.Env):
         self._obs = []
         # As a first step, actions can be only of 3 types: move, look, attack
         # For each type of action, there should be a list of pairs of {entity, goal}
-        self._actions = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}], 'TAKE_PATH': [{}]}
+        self._actions = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
 
         # ROS2 Support
         self.entities = []
