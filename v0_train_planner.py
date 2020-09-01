@@ -576,65 +576,178 @@ def record(env):
         episode_rewards.append(episode_reward)
     data_saver(obs, actions, rewards, dones, episode_rewards)
 
-def h_map_func(obs, pass_num):
 
-    hmap = obs['h_map']
-    hmap = (hmap - np.min(hmap)) / np.ptp(hmap)
-    hmap = hmap.reshape(291, 150)
+##############
+##
+##            Planner
+##
+#######################
 
+def dist2d(one, two):
+    return math.sqrt((one.x - two.x) ** 2.0 + (one.y - two.y) ** 2.0)
 
-    Ax, Bx = 9.7, 291
-    Ay, By = 6, 0
-    x_new = int(obs['y_vehicle'] * Ax + Bx)
-    y_new = int(obs['x_vehicle'] * Ay + By)
-    # print('xold: ', obs['y_vehicle'], 'xnew: ', x_new, 'yold: ', obs['x_vehicle'], 'ynew: ', y_new)
-
-    pass_offset = -int(pass_num)
-
-    x_hmap = hmap[0:260, y_new - 70:y_new - 10]
-    LP_hmap = hmap[x_new + 70 + pass_offset:x_new + 120 + pass_offset, y_new - 70:y_new - 10]
-    # plt.imshow(LP_hmap)
-    # plt.show(block=False)recg,   # plt.pause(0.01)
-    return x_hmap, LP_hmap
-
-
-def dump_load(env,push_pid):
-    print('dumping load')
-    obs = env.get_obs()
-    des = [obs['y_vehicle'], obs['x_vehicle'], 245, 300]
-    for _ in range(70):
-        action = push_pid.step(obs, des)
-        action[1] = 0
-        obs, _, _, _ = env.step(action)
-        # print('des x: ', des[0], 'x: ', 30 + obs['y_vehicle'], 'des lift: ', des[2], 'lift: ', obs['arm_lift'], 'des pitch: ',
-        #       des[3], 'pitch: ', obs['arm_pitch'])
-
-
-def move_back(env,push_pid):
-    obs = env.get_obs()
-    print('moving back')
-    des = [5, obs['x_vehicle'], 226, 352]
-    for _ in range(70):
-
-        action = push_pid.step(obs, des)
-        obs, _, _, _ = env.step(action)
-        # print('des x: ', des[0], 'x: ', 30 + obs['y_vehicle'], 'des lift: ', des[2], 'lift: ', obs['arm_lift'], 'des pitch: ',
-        #       des[3], 'pitch: ', obs['arm_pitch'])
-        print('des x: ', des[0], 'x: ', 30 + obs['y_vehicle'])
-    push_pid.lift_pid.save_plot('lift', 'lift')
-    push_pid.pitch_pid.save_plot('pitch', 'pitch')
-    push_pid.speed_pid.save_plot('speed', 'speed')
-
-def dist2d(One, Two):
-    return math.sqrt((One.x - Two.x) ** 2.0 + (One.y - Two.y) ** 2.0)
-
-def dist3d(One, Two):
-    return  math.sqrt((One.x - Two.x)**2.0 + (One.y - Two.y)**2.0 + (One.z - Two.z)**2.0)
+def dist3d(one, two):
+    return  math.sqrt((one.x - two.x)**2.0 + (one.y - two.y)**2.0 + (one.z - two.z)**2.0)
 
 def add_action(action_list, action_type, entity_id, parameter):
     # Parameter is a tupple
     todo = {entity_id: parameter}
     action_list[action_type].append(todo)
+
+def run_scenario(action_list, at_house1, at_house2, at_point1, at_point2, at_scanner1, at_scanner2, at_scanner3,
+                 at_suicide1, at_suicide2, at_suicide3, at_window1, env, min_dist, start_time_x, start_time_y,
+                 start_time_zz, timer_x_period, timer_y_period, timer_zz_period):
+    obs = env.reset()
+    # Wait until there is some enemy
+    while not bool(obs['enemies']):
+        continue
+    # Since pre-defined scenario, let's get all the entities
+    ugv_entity = env.get_entity('UGV')
+    scd_entity = env.get_entity('Suicide')
+    drn_entity = env.get_entity('SensorDrone')
+    while not bool(ugv_entity):
+        ugv_entity = env.get_entity('UGV')
+    ugv_state = UGVLocalMachine(ugv_entity)
+    while not bool(scd_entity):
+        scd_entity = env.get_entity('Suicide')
+    scd_state = SuicideLocalMachine(scd_entity)
+    while not bool(drn_entity):
+        drn_entity = env.get_entity('SensorDrone')
+    drn_state = DroneLocalMachine(drn_entity)
+    # Start to move the entities
+    add_action(action_list, 'TAKE_PATH', 'UGV', ('Path1', Point()))  # 444
+    add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1))
+    add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1))  # 444
+    add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2))  # 444
+    # Set state to each entity
+    ugv_state.phase1()
+    drn_state.phase1()
+    scd_state.phase_i_2()
+    done = False
+    while not done:
+        obs, _ = env.step(action_list)
+        #       obs, _, done, _ = env.step(action_list)
+        # obs = env.get_obs()
+        # Check if there is is dead
+        list_actual_enemies = obs['enemies']
+        for i in range(len(list_actual_enemies)):
+            if not list_actual_enemies[i].is_alive:
+                done = True
+
+        # Check if there is an enemy in line of sight
+        if bool(obs['los_mesh']):
+            nm1 = obs['los_mesh']
+            for key in nm1:
+                enemy_name = key
+                list_of_entities = nm1[key]
+                enemy = env.get_enemy(enemy_name)
+                # Choose to attack the first enemy in the list
+                num_of_entities = len(list_of_entities)
+                if num_of_entities > 1:
+                    # Choose first to shoot if possible
+                    found_ugv = False
+                    found_suicide = False
+                    found_scan = False
+                    for i in range(num_of_entities):
+                        ent0 = list_of_entities[i]
+                        if env.get_entity(ent0).diagstatus.name == "UGV":
+                            # We can shoot
+                            add_action(action_list, 'ATTACK', ent0.id, (enemy.gpose))
+                            found_ugv = True
+                        elif env.get_entity(ent0).diagstatus.name == "Suicide":
+                            # We can commit suicide
+                            found_suicide = True
+                            suicide_entity = ent0
+                        else:
+                            found_scan = True
+                    if not found_ugv:
+                        # We cannot shoot
+                        if found_suicide:
+                            add_action(action_list, 'ATTACK', suicide_entity.id, (enemy.gpose))
+                        elif found_scan:
+                            # Tell suicide to get close to the enemy so that it will be able
+                            # to attack him eventually
+                            add_action(action_list, 'MOVE_TO', 'Suicide', (enemy.gpose))
+                            if scd_state.is_suicide2:
+                                scd_state.phase2_ZZ()
+                            elif scd_state.is_suicide3:
+                                scd_state.phase3_ZZ()
+                            else:
+                                print("Strange state for Suicide")
+                            start_time_zz = time.time()
+
+        # Deal with scenario
+        # Take care of UGV
+        if ugv_state.is_point1:
+            if dist3d(ugv_entity.gpose, at_point1) <= min_dist:  # ZZZ needs point1
+                # Reach point1
+                start_time_x = time.time()
+                ugv_state.phase2()
+        elif ugv_state.is_wait1:
+            # Check time
+            right_now = time.time()
+            diff = right_now - start_time_x
+            if diff >= timer_x_period:
+                add_action(action_list, 'ATTACK', 'UGV', (at_window1))
+                ugv_state.wait2()
+                start_time_y = time.time()
+        elif ugv_state.is_wait2:
+            # Check time
+            right_now = time.time()
+            diff = right_now - start_time_y
+            if diff >= timer_y_period:
+                add_action(action_list, 'TAKE_PATH', 'UGV', ('Path2', Point()))  # ZZZ needs goal
+                ugv_state.phase2()
+        elif ugv_state.is_point2:
+            if dist3d(ugv_entity.gpose, at_point2) <= min_dist:  # ZZZ needs Point2
+                # Reach Point2
+                # What to do?
+                done = True
+
+        # Take care of suicide
+        if scd_state.is_suicide2:
+            if dist3d(scd_entity.gpose, at_suicide2) <= min_dist:
+                if dist3d(scd_entity.gpose, at_scanner1) <= 2 * min_dist:
+                    add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide3))
+                    scd_state.phase3()
+        elif scd_state.is_suicide3:
+            if dist3d(scd_entity.gpose, at_suicide3) <= min_dist:
+                if dist3d(scd_entity.gpose, at_scanner2) <= 2 * min_dist:
+                    add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2))
+                    scd_state.phase4()
+        elif scd_state.is_suicideZZ:  ## Was asked to get close to enemy
+            right_now = time.time()
+            diff = right_now - start_time_zz
+            ### After some timeout (timer_zz_period), return to usual itinerary
+            if diff >= timer_zz_period:
+                add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide3))
+                scd_state.phaseZZ_3()
+        elif scd_state.is_suicide1:  ## Shouldn't happen
+            if dist3d(scd_entity.gpose, at_suicide1) <= min_dist:
+                add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2))
+                scd_state.phase2()
+
+        # Take care of drone
+        if drn_state.is_scanner1:
+            if dist3d(scd_entity.gpose, at_scanner1) <= min_dist:
+                if dist3d(scd_entity.gpose, at_suicide2) <= 2 * min_dist:
+                    add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner2))
+                    add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house2))
+                    scd_state.phase2()
+        elif scd_state.is_scanner2:
+            if dist3d(scd_entity.gpose, at_scanner2) <= min_dist:
+                if dist3d(scd_entity.gpose, at_suicide3) <= 2 * min_dist:
+                    add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1))
+                    add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1))
+                    scd_state.phase3()
+        elif scd_state.is_scanner3:  ## Shouldn't happen
+            if dist3d(scd_entity.gpose, at_scanner3) <= min_dist:
+                add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1))
+                add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1))
+                scd_state.phase5()
+
+        ### done is True
+    ### Compute reward
 
 def play(save_dir, env):
    # action_list = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}], 'TAKE_PATH': [{}]}
@@ -665,170 +778,19 @@ def play(save_dir, env):
     start_time_y = 0
     start_time_zz = 0
     min_dist = 1
+    end_of_session = False
+   # reset
+   # until not end_of_session
+   #  # run scenario
+   #  # when done
+   # reset, run scenario
+   # end of session: exit
 
-    obs = env.reset()
-
-    # while True: ## test loop
-    #     obs = env.get_obs()
-    #     # action = [0.1, 0, 0, 0]
-    #     # env.step(action)
-    #     # time.sleep(0.05)
-
-    # Wait until there is some enemy
-    while not bool(obs['enemies']):
-        continue
-
-    # Since pre-defined scenario, let's get all the entities
-    ugv_entity = env.get_entity('UGV')
-    ugv_state = UGVLocalMachine(ugv_entity)
-    scd_entity = env.get_entity('Suicide')
-    scd_state = SuicideLocalMachine(scd_entity)
-    drn_entity = env.get_entity('SensorDrone')
-    drn_state = DroneLocalMachine(drn_entity)
-
-    # Start to move the entities
-    add_action(action_list, 'TAKE_PATH', 'UGV', ('Path1', Point())) # 444
-    add_action(action_list,'MOVE_TO', 'SensorDrone', (at_scanner1))
-    add_action(action_list,'LOOK_AT', 'SensorDrone', (at_house1))  # 444
-    add_action(action_list,'MOVE_TO', 'Suicide', (at_suicide2))    # 444
-
-    # Set state to each entity
-    ugv_state.phase1()
-    drn_state.phase1()
-    scd_state.phase_i_2()
-
-    done = False
-
-    while not done:
-        # for pass_num in range(num_of_passes):
-        #     print('pass number ', pass_num)
-        #     # action 0
-        #     act_name = 'action_'+str(pass_num)
-        #     action = env.fill(act_name)
-        #     # time.sleep(0.1)
-
-        obs, _, done, _ = env.step(action_list)   # 444
-        # obs = env.get_obs()
-        # Check if there is is dead
-        list_actual_enemies = obs['enemies']
-        for i in range(len(list_actual_enemies)):
-            if not list_actual_enemies[i].is_alive:
-                done = True
-
-        # Check if there is an enemy in line of sight
-        if bool(obs['los_mesh']):
-            nm1 = obs['los_mesh']
-            for key in nm1:
-                enemy_name = key
-                list_of_entities = nm1[key]
-                enemy = env.get_enemy(enemy_name)
-                # Choose to attack the first enemy in the list
-                num_of_entities = len(list_of_entities)
-                if num_of_entities > 1:
-                    # Choose first to shoot if possible
-                    found_ugv = False
-                    found_suicide = False
-                    found_scan = False
-                    for i in range(num_of_entities):
-                        ent0 = list_of_entities[i]
-                        if env.get_entity(ent0).diagstatus.name == "UGV":
-                            # We can shoot
-                            add_action(action_list,'ATTACK', ent0.id, (enemy.gpose))
-                            found_ugv = True
-                        elif env.get_entity(ent0).diagstatus.name == "Suicide":
-                            # We can commit suicide
-                            found_suicide = True
-                            suicide_entity = ent0
-                        else:
-                            found_scan = True
-                    if not found_ugv:
-                        # We cannot shoot
-                        if found_suicide:
-                            add_action(action_list,'ATTACK', suicide_entity.id, (enemy.gpose))
-                        elif found_scan:
-                            # Tell suicide to get close to the enemy so that it will be able
-                            # to attack him eventually
-                            add_action(action_list,'MOVE_TO', 'Suicide', (enemy.gpose))
-                            if scd_state.is_suicide2:
-                                scd_state.phase2_ZZ()
-                            elif scd_state.is_suicide3:
-                                scd_state.phase3_ZZ()
-                            else:
-                                print("Strange state for Suicide")
-                            start_time_zz = time.time()
-
-
-
-        # Deal with scenario
-        # Take care of UGV
-        if ugv_state.is_point1:
-            if dist3d(ugv_entity.gpose, at_point1) <= min_dist: #ZZZ needs point1
-                # Reach point1
-                start_time_x = time.time()
-                ugv_state.phase2()
-        elif ugv_state.is_wait1:
-                # Check time
-                right_now = time.time()
-                diff = right_now - start_time_x
-                if diff >= timer_x_period:
-                    add_action(action_list,'ATTACK', 'UGV', (at_window1))
-                    ugv_state.wait2()
-                    start_time_y = time.time()
-        elif ugv_state.is_wait2:
-                # Check time
-                right_now = time.time()
-                diff = right_now - start_time_y
-                if diff >= timer_y_period:
-                    add_action(action_list,'TAKE_PATH', 'UGV', ('Path2', Point())) #ZZZ needs goal
-                    ugv_state.phase2()
-        elif ugv_state.is_point2:
-            if dist3d(ugv_entity.gpose, at_point2) <= min_dist: #ZZZ needs Point2
-                # Reach Point2
-                # What to do?
-                done = True
-
-        # Take care of suicide
-        if scd_state.is_suicide2:
-            if dist3d(scd_entity.gpose, at_suicide2) <= min_dist:
-                if dist3d(scd_entity.gpose, at_scanner1) <= 2*min_dist:
-                    add_action(action_list,'MOVE_TO', 'Suicide', (at_suicide3))
-                    scd_state.phase3()
-        elif scd_state.is_suicide3:
-            if dist3d(scd_entity.gpose, at_suicide3) <= min_dist:
-                if dist3d(scd_entity.gpose, at_scanner2) <= 2*min_dist:
-                    add_action(action_list,'MOVE_TO', 'Suicide', (at_suicide2))
-                    scd_state.phase4()
-        elif scd_state.is_suicide1: ## Shouldn't happen
-            if dist3d(scd_entity.gpose, at_suicide1) <= min_dist:
-                add_action(action_list,'MOVE_TO', 'Suicide', (at_suicide2))
-                scd_state.phase2()
-        elif scd_state.is_suicideZZ: ## Was asked to get close to enemy
-            right_now = time.time()
-            diff = right_now - start_time_zz
-            if diff >= timer_zz_period:
-                add_action(action_list,'MOVE_TO', 'Suicide', (at_suicide3))
-                scd_state.phaseZZ_3()
-
-
-        # Take care of drone
-        if drn_state.is_scanner1:
-            if dist3d(scd_entity.gpose, at_scanner1) <= min_dist:
-                if dist3d(scd_entity.gpose, at_suicide2) <= 2*min_dist:
-                    add_action(action_list,'MOVE_TO', 'SensorDrone', (at_scanner2))
-                    add_action(action_list,'LOOK_AT', 'SensorDrone', (at_house2))
-                    scd_state.phase2()
-        elif scd_state.is_scanner2:
-            if dist3d(scd_entity.gpose, at_scanner2) <= min_dist:
-                if dist3d(scd_entity.gpose, at_suicide3) <= 2*min_dist:
-                    add_action(action_list,'MOVE_TO', 'SensorDrone', (at_scanner1))
-                    add_action(action_list,'LOOK_AT', 'SensorDrone', (at_house1))
-                    scd_state.phase3()
-        elif scd_state.is_scanner3:## Shouldn't happen
-            if dist3d(scd_entity.gpose, at_scanner3) <= min_dist:
-                add_action(action_list,'MOVE_TO', 'SensorDrone', (at_scanner1))
-                add_action(action_list,'LOOK_AT', 'SensorDrone', (at_house1))
-                scd_state.phase5()
-
+    while not end_of_session:
+        run_scenario(action_list, at_house1, at_house2, at_point1, at_point2, at_scanner1, at_scanner2, at_scanner3,
+                at_suicide1, at_suicide2, at_suicide3, at_window1, env, min_dist, start_time_x, start_time_y,
+                start_time_zz, timer_x_period, timer_y_period, timer_zz_period)
+       # Compute reward
 
 def train(algo, policy, pretrain, n_timesteps, log_dir, model_dir, env_name, model_save_interval):
     """

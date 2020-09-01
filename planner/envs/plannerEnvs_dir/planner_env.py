@@ -356,24 +356,23 @@ class PlannerEnv(gym.Env):
         self._obs = self.update_state()
 
         # calc step reward and add to total
-        r_t = self.reward_func()
+        # r_t = self.reward_func()
 
         # check if done
-        done, final_reward, reset = self.end_of_episode()
+        # done, final_reward, reset = self.end_of_episode()
 
-        step_reward = r_t + final_reward
-        self.total_reward = self.total_reward + step_reward
+        # step_reward = r_t + final_reward
+        # self.total_reward = self.total_reward + step_reward
 
-        self.done = done
-        if done:
-            self.enemies = {}
-            self.entities = {}
-            print('Done ')
+        # self.done = done
+        # if done:
+        #     self.enemies = {}
+        #     self.entities = {}
+        #     print('Done ')
 
-        info = {"state": self._obs, "action": action, "reward": self.total_reward, "step": self.steps,
-                "reset reason": reset}
+        info = {"state": self._obs, "action": action, "reward": self.total_reward, "step": self.steps }
 
-        return self._obs, step_reward, done, info
+        return self._obs, info
 
     def end_of_episode(self):
         done = False
