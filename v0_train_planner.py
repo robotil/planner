@@ -12,6 +12,7 @@ from typing import Dict
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
 from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
 import math
+from logic_simulator.logic_sim import LogicSim
 from keras.models import load_model
 from matplotlib import pyplot as plt
 #from tensor_board_cb import TensorboardCallback
@@ -624,7 +625,10 @@ def run_scenario(action_list, at_house1, at_house2, at_point1, at_point2, at_sca
     drn_state.phase1()
     scd_state.phase_i_2()
     done = False
+    logic_sim = LogicSim(env.entities, env.enemies)
     while not done:
+        obs, _ = logic_sim.step(action_list)
+
         obs, _ = env.step(action_list)
         #       obs, _, done, _ = env.step(action_list)
         # obs = env.get_obs()
