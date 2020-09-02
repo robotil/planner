@@ -10,6 +10,8 @@ from logic_simulator.enemy import Enemy
 
 class LogicSim:
     
+    MAX_STEPS = 1000
+
     ACTIONS_TO_METHODS = {
         'MOVE_TO':{SuicideDrone: Drone.go_to, SensorDrone: Drone.go_to, Ugv: Ugv.go_to},
         'LOOK_AT':{SuicideDrone: Drone.look_at, SensorDrone: Drone.look_at, Ugv: Ugv.look_at},
@@ -17,16 +19,44 @@ class LogicSim:
         'TAKE_PATH':{Ugv: Ugv.go_to}
     }
 
-    def __init__(self, entities: dict, enemies: list):    
+    def __init__(self, entities: dict, enemies = []):    
         self._entities = entities
         self._enemies = enemies
+        self._step = 0
 
     def step(self, actions):
         '''
-        actions - list of key value pair where key is the entity and value is the action
+        actions - dictionary of actions_id to entity_id-params pairs
+                e.g. actions = {'MOVE_TO':[{'SensorDrone': (target_wp1)},{'Suicide': (target_wp2)}],
+                    'LOOK_AT':[{'SensorDrone': (target_wp3)}],
+                    'ATTACK':[],
+                    'TAKE_PATH':[{'UGV':('Path1',target_wp3)}]}
+
         '''
+        self._step += 1
+
+        self._execute_entities_actions(actions)
+
+        self._update_enemies()
         
-        # execute entities actions
+        return self._get_obs(), self.reward(), self.is_done(), {} 
+
+    
+    def _get_obs(self):
+        match_los = self._compute_all_los()
+        entities_state = [e.state for e in self._entities.values()]
+        enemies_state = [e.state for e in self._enemies]
+        return [entities_state, enemies_state, match_los]
+
+
+    def _update_enemies(self):
+        for e in self._enemies:
+            e.step()
+        
+        self._enemies = [enemy for enemy in self._enemies if enemy.health > 0]
+
+    
+    def _execute_entities_actions(self, actions):
         for action_name, ent_params_list in actions.items():
             assert action_name in LogicSim.ACTIONS_TO_METHODS.keys(),\
                 'LogicSim.ACTIONS_TO_METHODS does not have key {}'.format(action_name)
@@ -40,11 +70,19 @@ class LogicSim:
                         method(entity, *params)
                     else:
                         method(entity, params)
-
-        # update enemies
-        for e in self._enemies:
-            e.step()
-                
+    
+    
+    def reward(self):
+        return 0.0
+    
+    def is_done(self):
+        return self._step >= LogicSim.MAX_STEPS or len(self._enemies) == 0
+        
+    def _compute_all_los(self):
+        match_los = {}
+        for enemy in self._enemies:
+            match_los[enemy.id] = [entity for entity in self._entities.values() if entity.is_line_of_sight_to(enemy.pos)]
+        return match_los        
             
         
     def clone(self):
@@ -58,7 +96,7 @@ class LogicSim:
 
     @property
     def state(self):
-        return np.array([e.state for e in self._entities.values()])
+        return np.array([ent.state for ent in self._entities.values() + self._enemies])
 
     def __str__(self):
         s = 'LogicSim state \n'
