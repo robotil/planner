@@ -30,9 +30,8 @@ SOUTH_WINDOW_POS = Pos(410.0, 250.0, 10.0)
 EAST_WINDOW_POS = Pos(450.0, 270.0, 10.0)
 SOUTH_WEST_UGV_POS = Pos(350.0, 190.0, 30.0)
 
-MAX_STEPS = 1000
-TIME_TO_STIMULATE_1 = MAX_STEPS / 4
-TIME_TO_STIMULATE_2 = 3 * MAX_STEPS / 4
+TIME_TO_STIMULATE_1 = LogicSim.MAX_STEPS / 4
+TIME_TO_STIMULATE_2 = 3 * LogicSim.MAX_STEPS / 4
 
 PATH_ID = 1
 
@@ -82,9 +81,6 @@ def order_drones_look_at(actions, suicide_drone, sensor_drone):
 
     add_action(actions, suicide_drone, "LOOK_AT", sensor_drone_look_at)
 
-    
-
-
 def line_of_sight(ent, pos):
     return ent.is_line_of_sight_to(pos)
 
@@ -98,7 +94,7 @@ def simple_building_ambush():
     suicide_drone = SuicideDrone('Suicide', SUICIDE_DRONE_START_POS)
     ugv = Ugv('UGV', UGV_START_POS)
     enemy_positions = [ENEMY_POS]
-    enemies = [Enemy("Enemy" + str(i), p) for i,p in enumerate(enemy_positions)]
+    enemies = [Enemy("Enemy" + str(i), p, 1) for i,p in enumerate(enemy_positions)]
     ls = LogicSim({suicide_drone.id: suicide_drone, sensor_drone.id:sensor_drone, ugv.id:ugv}, enemies)
     
     step = 0 
@@ -107,7 +103,7 @@ def simple_building_ambush():
     plan_index = 0
     all_entities_positioned = False
 
-    while step < MAX_STEPS and not done:
+    while step < LogicSim.MAX_STEPS and not done:
         step += 1
         entities_with_los_to_enemy = line_of_sight_to_enemy([suicide_drone, sensor_drone, ugv])
         
@@ -147,7 +143,8 @@ def simple_building_ambush():
             plan_index = order_drones_movement(actions, suicide_drone, sensor_drone, plan_index)
             order_drones_look_at(actions, suicide_drone, sensor_drone)
 
-        ls.step(actions)
+        obs, reward, done, _ =  ls.step(actions)
+        logging.info('obs = {}, reward = {}, done = {}'.format(obs,reward,done))
 
 def get_new_target(old_target):
     assert not old_target is None
@@ -169,10 +166,10 @@ def test_logic_sim():
     sensor_drone = SensorDrone('SensorDrone', target_wp1)
     suicide_drone = SuicideDrone('Suicide', target_wp2)
     ugv = Ugv('UGV', target_wp3)
-    ls = LogicSim({suicide_drone.id: suicide_drone, sensor_drone.id:sensor_drone, ugv.id:ugv})
+    ls = LogicSim({suicide_drone.id: suicide_drone, sensor_drone.id:sensor_drone, ugv.id:ugv} )
     
 
-    for t in range(1000):
+    for _ in range(1000):
         if random.random() > 0.9: 
             target_wp1 = get_new_target(target_wp1)
             target_wp2 = get_new_target(target_wp2)
@@ -197,14 +194,11 @@ def test_logic_sim():
 
 def configure_logger():
     root = logging.getLogger()
-    
-
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.DEBUG)
     # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s') 
     FORMAT = "[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
     formatter = logging.Formatter(FORMAT)
-   
     handler.setFormatter(formatter)
     root.addHandler(handler)
     return root
@@ -212,5 +206,5 @@ def configure_logger():
 if __name__ == "__main__":
     # test_logic_sim()
     root = configure_logger()
-    root.setLevel(logging.DEBUG)
+    root.setLevel(logging.INFO)
     simple_building_ambush()

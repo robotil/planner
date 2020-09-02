@@ -25,7 +25,7 @@ class Ugv(Entity):
         return self._pos
 
     @property
-    def velocity(self)->float:
+    def velocity(self):
         return self._speed * self._velocity_dir
 
     def look_at(self, pos):

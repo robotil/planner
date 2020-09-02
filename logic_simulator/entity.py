@@ -1,6 +1,7 @@
 from logic_simulator.pos import Pos
 import numpy as np
 import copy
+
 class Entity:
 
     def __init__(self, id, pos: Pos):
@@ -11,6 +12,7 @@ class Entity:
         self._t = 0.0
         self._target_pos = copy.copy(self._pos)
         self._looking_at = copy.copy(self._pos)
+        self._health = 1.0
 
     def predict(self, t):
         raise NotImplementedError
@@ -27,13 +29,14 @@ class Entity:
     def is_line_of_sight_to(self, pos):
         raise NotImplementedError
 
+
     @property
     def id(self):
         return self._id
 
     @property
     def state(self):
-        return np.array([self.pos, self.velocity, self.looking_at])
+        return np.array([[self.pos.X, self.pos.Y, self.pos.Z], self.velocity, [self.looking_at.X, self.looking_at.Y, self.looking_at.Z], self.health])
 
     @property
     def pos(self)->Pos:
@@ -42,6 +45,10 @@ class Entity:
     @property
     def velocity(self):
         return self._speed * self._velocity_dir
+
+    @property
+    def health(self):
+        return self._health
 
     @property
     def looking_at(self)->Pos:
