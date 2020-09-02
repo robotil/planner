@@ -7,12 +7,23 @@ class Entity:
     def __init__(self, id, pos: Pos):
         self._id = id
         self._pos = pos
+        self._startpos = copy.copy(pos)
+        self._velocity_dir = np.array([0.0,0.0,0.0],dtype=float)
+        self._speed = 0.0
+        self._t = 0.0
+        self._target_pos = copy.copy(pos)
+        self._looking_at = copy.copy(pos)
+        self._health = 1.0
+
+    def reset(self):
+        self._pos = copy.copy(self._startpos)
         self._velocity_dir = np.array([0.0,0.0,0.0],dtype=float)
         self._speed = 0.0
         self._t = 0.0
         self._target_pos = copy.copy(self._pos)
         self._looking_at = copy.copy(self._pos)
         self._health = 1.0
+
 
     def predict(self, t):
         raise NotImplementedError

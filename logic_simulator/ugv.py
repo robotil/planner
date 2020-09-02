@@ -17,9 +17,14 @@ class Ugv(Entity):
     def __init__(self,id, pos: Pos):
         super().__init__(id,pos)
         self._current_path = 0
-
         self._current_path_wp_index = 0
-        
+    
+    def reset(self):
+        super().reset()
+        self._current_path = 0
+        self._current_path_wp_index = 0
+
+
     @property
     def pos(self) -> Pos:
         return self._pos
