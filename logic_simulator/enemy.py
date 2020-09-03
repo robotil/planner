@@ -23,5 +23,5 @@ class Enemy(Entity):
          return [[self.pos.X, self.pos.Y, self.pos.Z], self.health, self.priority]
 
     def clone(self):
-        e = Enemy(self.id, self.pos)
+        e = Enemy(self.id, self.pos, self.priority)
         return e

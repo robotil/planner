@@ -7,7 +7,7 @@ from logic_simulator.sensor_drone import SensorDrone
 from logic_simulator.suicide_drone import SuicideDrone
 from logic_simulator.pos import Pos
 from logic_simulator.enemy import Enemy
-
+import copy
 class LogicSim:
     
     MAX_STEPS = 1000
@@ -23,6 +23,16 @@ class LogicSim:
         self._entities = entities
         self._enemies = enemies
         self._step = 0
+
+
+    def reset(self):
+        self._step = 0
+        for e in self._entities.values():
+            e.reset()
+        for e in self._enemies.values():
+            e.reset()
+        return self._get_obs()
+        
 
     def step(self, actions):
         '''
