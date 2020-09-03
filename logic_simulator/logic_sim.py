@@ -1,5 +1,4 @@
 import numpy as np
-# import time, thread, random
 import random
 from logic_simulator.drone import Drone
 from logic_simulator.ugv import Ugv
@@ -8,9 +7,16 @@ from logic_simulator.suicide_drone import SuicideDrone
 from logic_simulator.pos import Pos
 from logic_simulator.enemy import Enemy
 import copy
-class LogicSim:
-    
+from itertools import chain
+import gym
+import logging
+
+class LogicSim(gym.Env):
+    NUM_ACTIONS = 4
     MAX_STEPS = 1000
+    NUM_OF_ENTITIES = 3
+    NUM_OF_ENEMIES = 1
+    
 
     ACTIONS_TO_METHODS = {
         'MOVE_TO':{SuicideDrone: Drone.go_to, SensorDrone: Drone.go_to, Ugv: Ugv.go_to},
@@ -19,20 +25,53 @@ class LogicSim:
         'TAKE_PATH':{Ugv: Ugv.go_to}
     }
 
+    # # Set this in SOME subclasses
+    # metadata = {'render.modes': []}
+    # reward_range = (-np.inf, np.inf)
+    # spec = None
+
+    # # Set these in ALL subclasses
+    
+    observation_space = gym.spaces.Tuple([
+        gym.spaces.Tuple([                                                      #Entities obs
+            gym.spaces.Tuple([
+                gym.spaces.Box(low=-1000, high=1000, shape=(3,), dtype=float),  # pos
+                gym.spaces.Box(low=-1000, high=1000, shape=(3,), dtype=float),  # velocity
+                gym.spaces.Box(low=-1000, high=1000, shape=(3,), dtype=float),  # look_at
+                gym.spaces.Box(low=0, high=1, shape=(1,), dtype=float)
+            ])        # health
+            for _ in range(NUM_OF_ENTITIES)
+        ]),          
+        gym.spaces.Tuple([                                                      # Enemies Obs
+            gym.spaces.Tuple([
+                gym.spaces.Box(low=-1000, high=1000, shape=(3,), dtype=float),  # pos
+                gym.spaces.Box(low=0, high=1, shape=(1,), dtype=float),         # health
+                gym.spaces.Discrete(Enemy.NUM_OF_PRIORITIES)                    # priority
+            ])                                                                  
+            for _ in range(NUM_OF_ENEMIES)
+        ]),                     
+        gym.spaces.Tuple([gym.spaces.MultiBinary(1) for _ in range(NUM_OF_ENTITIES)])   # match_los
+    ])        
+    action_space = gym.spaces.Tuple([
+            gym.spaces.Tuple([gym.spaces.Discrete(4), gym.spaces.Box(low=-1000, high=1000, shape=(3,), dtype=float)]) for _ in range(NUM_OF_ENTITIES)
+    ])
+
+
     def __init__(self, entities: dict, enemies = []):    
         self._entities = entities
         self._enemies = enemies
         self._step = 0
-
+        print(LogicSim.observation_space)
 
     def reset(self):
         self._step = 0
-        for e in self._entities.values():
-            e.reset()
-        for e in self._enemies.values():
+        for e in chain(self._entities.values(),self._enemies):
             e.reset()
         return self._get_obs()
         
+    def render(self, mode='human'):
+        logging.error('Env cannot be rendered')
+        assert False, 'Env cannot be rendered'
 
     def step(self, actions):
         '''
@@ -56,7 +95,7 @@ class LogicSim:
         match_los = self._compute_all_los()
         entities_state = [e.state for e in self._entities.values()]
         enemies_state = [e.state for e in self._enemies]
-        return [entities_state, enemies_state, match_los]
+        return entities_state, enemies_state, match_los
 
 
     def _update_enemies(self):
@@ -115,22 +154,3 @@ class LogicSim:
             s += '\n'
         return str(s)
 
-
-
-    
-
-# def myfunction(string, sleeptime, lock, *args):
-#     while True:
-#         lock.acquire()
-#         time.sleep(sleeptime)
-#         lock.release()
-#         time.sleep(sleeptime)
-
-
-
-
-
-    
-    # lock = thread.allocate_lock()
-    # thread.start_new_thread(myfunction, ("Thread #: 1", 2, lock))
-    # thread.start_new_thread(myfunction, ("Thread #: 2", 2, lock))

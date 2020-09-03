@@ -96,7 +96,7 @@ def simple_building_ambush():
     enemy_positions = [ENEMY_POS]
     enemies = [Enemy("Enemy" + str(i), p, 1) for i,p in enumerate(enemy_positions)]
     ls = LogicSim({suicide_drone.id: suicide_drone, sensor_drone.id:sensor_drone, ugv.id:ugv}, enemies)
-    
+    ls.reset()
     step = 0 
     done = False
 
@@ -144,6 +144,7 @@ def simple_building_ambush():
             order_drones_look_at(actions, suicide_drone, sensor_drone)
 
         obs, reward, done, _ =  ls.step(actions)
+        print (obs)
         logging.info('obs = {}, reward = {}, done = {}'.format(obs,reward,done))
 
 def get_new_target(old_target):
