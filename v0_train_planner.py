@@ -4,6 +4,7 @@ import os
 from stable_baselines.gail import ExpertDataset
 from stable_baselines import TRPO, A2C, DDPG, PPO1, PPO2, SAC, ACER, ACKTR, GAIL, DQN, HER, TD3, logger
 import gym
+import logging, sys
 
 import time, datetime
 import numpy as np
@@ -114,8 +115,11 @@ def sim_enemy(enemy):
 def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_scanner1, at_scanner2, at_scanner3,
                  at_suicide1, at_suicide2, at_suicide3, at_window1, env, min_dist, start_time_x, start_time_y,
                  start_time_zz, timer_x_period, timer_y_period, timer_zz_period):
-    obs = env.reset()
     # Wait until there is some enemy
+    os.system("scripts/populate-scen-0.bash &")
+
+    obs = env.reset()
+
     while not bool(obs['enemies']):
         continue
     # Since pre-defined scenario, let's get all the entities
@@ -158,6 +162,9 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
         step = step + 1
         if step > logic_sim.MAX_STEPS:
             done = True
+
+        # Reset Actions
+        action_list = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
 
         a, f, los = obs
         health = f[0][1]
@@ -286,6 +293,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
     ### Compute reward
     diff_step = logic_sim.MAX_STEPS - step + 1
     this_reward = compute_reward(diff_step, num_of_dead, num_of_lost_devices, scenario_completed)
+    print("LALALALA - Scenario completed: step ", step," reward ", reward)
     return this_reward, diff_step, num_of_dead, num_of_lost_devices, scenario_completed
 
 def run_scenario(action_list, at_house1, at_house2, at_point1, at_point2, at_scanner1, at_scanner2, at_scanner3,
@@ -450,8 +458,6 @@ def run_scenario(action_list, at_house1, at_house2, at_point1, at_point2, at_sca
 
 def play(save_dir, env):
    # action_list = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}], 'TAKE_PATH': [{}]}
-    action_list = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
-
     at_scanner1 = Point(x=-0.000531347, y=0.001073413, z=25.4169386)
     at_scanner2 = Point(x=-4.25E-05, y=0.000951778, z=23.7457949)
     at_scanner3 = Point(x=0.000144236, y=0.000308294, z=23.2363825)
@@ -495,8 +501,13 @@ def play(save_dir, env):
     start_time_zz = 0
     min_dist = 1
     end_of_session = False
-    session_num = 0
+    session_num = 1
+    root = configure_logger()
+    root.setLevel(logging.INFO)
+
     while not end_of_session:
+        action_list = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
+        print("LALALALA - Starting session: session ", session_num)
         curr_reward, curr_step, curr_num_of_dead, curr_num_of_lost_devices, curr_scenario_completed = \
             run_logical_sim(action_list, lg_house1,lg_house2, lg_point1, lg_point2, lg_scanner1, lg_scanner2, lg_scanner3, \
                 lg_suicide1, lg_suicide2, lg_suicide3, lg_window1, env, min_dist, start_time_x, start_time_y, \
@@ -505,8 +516,8 @@ def play(save_dir, env):
         #         at_suicide1, at_suicide2, at_suicide3, at_window1, env, min_dist, start_time_x, start_time_y,
         #         start_time_zz, timer_x_period, timer_y_period, timer_zz_period)
         f = open("results.csv", "a")
-        curr_string = datetime.datetime.now().__str__() + "," + curr_step.__str__() + "," + curr_num_of_dead.__str__() + \
-                      "," + curr_num_of_lost_devices.__str__() + "," + curr_scenario_completed.__str__()
+        curr_string = datetime.datetime.now().__str__() + "," + curr_reward.__str__() + ","+ curr_step.__str__() + "," + curr_num_of_dead.__str__() + \
+                      "," + curr_num_of_lost_devices.__str__() + "," + curr_scenario_completed.__str__() +"\n"
         f.write(curr_string)
         f.close()
         session_num += 1
@@ -515,7 +526,17 @@ def play(save_dir, env):
        # Print reward
         print(curr_reward, curr_step, curr_num_of_dead, curr_num_of_lost_devices, curr_scenario_completed)
 
-
+# For Logical Simulation
+def configure_logger():
+    root = logging.getLogger()
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    FORMAT = "[%(filename)s:%(lineno)s - %(funcName)s() %(asctime)s %(levelname)s] %(message)s"
+    formatter = logging.Formatter(FORMAT)
+    handler.setFormatter(formatter)
+    root.addHandler(handler)
+    return root
 
 def CreateLogAndModelDirs(args):
     '''

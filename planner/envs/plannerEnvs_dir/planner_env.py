@@ -309,9 +309,10 @@ class PlannerEnv(gym.Env):
         self.init_env()
 
         # wait for simulation to set up
-        while True:  # wait for all topics to arrive
-            if bool(self.entities):  # if there is some data:
-                break
+        # Temporary comments
+        ## while True:  # wait for all topics to arrive
+        ##     if bool(self.entities):  # if there is some data:
+        ##         break
 #            if bool(self.entities) and bool(self.enemies):  # if there is some data:
 
 
