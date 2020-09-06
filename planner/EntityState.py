@@ -28,7 +28,7 @@ class SuicideLocalMachine(StateMachine):
     phase3 = suicide2.to(suicide3)
     phase4 = suicide3.to(suicide2)
     phaseZZ_3 = suicideZZ.to(suicide3)
-    phase2_ZZ = suicide1.to(suicideZZ)
+    phase2_ZZ = suicide2.to(suicideZZ)
     phase3_ZZ = suicide3.to(suicideZZ)
 
 
