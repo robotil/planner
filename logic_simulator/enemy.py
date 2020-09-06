@@ -3,6 +3,9 @@ from logic_simulator.pos import Pos
 import numpy as np
 import random
 class Enemy(Entity):
+
+    NUM_OF_PRIORITIES = 4
+
     def __init__(self, id, pos: Pos, priority):
         super().__init__(id,pos)
         self._priority = priority
@@ -18,7 +21,7 @@ class Enemy(Entity):
         offset = max_offset * random.random() * random.choice(offset_dir) * random.choice(offset_axis)
         assert not offset is None
         self._pos.add(offset)
-
+    @property
     def state(self):
          return [[self.pos.X, self.pos.Y, self.pos.Z], self.health, self.priority]
 
