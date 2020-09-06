@@ -51,13 +51,14 @@ class PlannerEnv(gym.Env):
             self.is_alive = n_enn.is_alive
 
     class Entity:
-        def __init__(self, msg, state='zero'):
+        def __init__(self, msg):
+            # def __init__(self, msg, state='zero'):
             self.id = msg.id
             self.diagstatus = msg.diagstatus
             self.gpoint = Point()
             self.imu = Imu()
             self.health = KeyValue()
-            self.state = state
+            # self.state = state
 
         def update_desc(self, n_ent):
             self.diagstatus = n_ent.diagstatus
