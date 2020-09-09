@@ -181,6 +181,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
     drn_state.phase1()
     scd_state.phase_i_2()
     done = False
+    reason = ""
     log_entities = {log_drn.id: log_drn, log_scd.id: log_scd, log_ugv.id: log_ugv}
     log_enemies = [sim_enemy(e) for e in env.enemies]
     logic_sim = LogicSim(log_entities, log_enemies)
@@ -195,20 +196,23 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
         obs, reward, done, _ = logic_sim.step(action_list)
         step = step + 1
         if step > logic_sim.MAX_STEPS:
+            reason = "step is "+step._str__()
             done = True
 
         # Reset Actions
         action_list = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
 
         a, f, los = obs
-        health = f[0][1]
-        if health == 0.0:
-            done = True
+        # health = f[0][1]
+        # if health == 0.0:
+        #     done = True
         list_actual_enemies = f
         for i in range(len(list_actual_enemies)):
             if list_actual_enemies[i][1] == 0.0:
                 num_of_dead = num_of_dead + 1
+                reason = "Enemy is dead"
                 done = True
+
 
         # Check if there is an enemy in line of sight
         # los is a dictionary of enemies and each enemy has a list of entities in los
@@ -275,13 +279,14 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
             right_now = time.time()
             diff = right_now - start_time_y
             if diff >= timer_y_period:
-                add_action(action_list, 'TAKE_PATH', 'UGV', ('Path2', at_point2))  # ZZZ needs goal
+                add_action(action_list, 'TAKE_PATH', 'UGV', ('Path2', at_point2))
                 ugv_state.phase4()
         elif ugv_state.is_point2:
             if dist3d(log_ugv.pos, at_point2) <= min_dist:  # ZZZ needs Point2
                 # Reach Point2
                 # What to do?
-                done = True
+                #done = True
+                print("Don't know what to do")
             else:
                 add_action(action_list, 'TAKE_PATH', 'UGV', ('Path2', at_point2))
 
@@ -294,7 +299,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
                 else:
                     # Just stay in position and wait for scan drone
                     print(
-                        "Step:" + step + " Suicide in state:" + scd_state.current_state + " is waiting for scan drone")
+                        "Step:" + step.__str__() + " Suicide in state:" + scd_state.current_state.__str__() + " is waiting for scan drone")
             else:
                 add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2,))
         elif scd_state.is_suicide3:
@@ -329,22 +334,22 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
         # Take care of drone
         if drn_state.is_scanner1:
             if dist3d(log_drn.pos, at_scanner1) <= min_dist:
-                if dist3d(log_scd.pose, at_suicide2) <= 2 * min_dist:
+                if dist3d(log_scd.pos, at_suicide2) <= 2 * min_dist:
                     add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner2))
                     add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house2))
-                    scd_state.phase2()
+                    drn_state.phase2()
                 else:
                     print(
-                        "Step:" + step + " Scanner Drone in state:" + drn_state.current_state + " is waiting for suicide drone")
+                        "Step:" + step.__str__() + " Scanner Drone in state:" + drn_state.current_state.__str__() + " is waiting for suicide drone")
             else:
                 add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1,))
                 add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1,))
         elif drn_state.is_scanner2:
             if dist3d(log_drn.pos, at_scanner2) <= min_dist:
-                if dist3d(log_scd.pose, at_suicide3) <= 2 * min_dist:
+                if dist3d(log_scd.pos, at_suicide3) <= 2 * min_dist:
                     add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1))
                     add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1))
-                    scd_state.phase3()
+                    drn_state.phase3()
                 else:
                     print(
                         "Step:" + step + " Scanner Drone in state:" + drn_state.current_state + " is waiting for suicide drone")
@@ -355,13 +360,13 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
             if dist3d(log_drn.pos, at_scanner3) <= min_dist:
                 add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1))
                 add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1))
-                scd_state.phase5()
+                drn_state.phase5()
 
         ### done is True
     ### Compute reward
     diff_step = logic_sim.MAX_STEPS - step + 1
     this_reward = compute_reward(diff_step, num_of_dead, num_of_lost_devices, scenario_completed)
-    print("LALALALA - Scenario completed: step ", step, " reward ", reward)
+    print("LALALALA - Scenario completed: step ", step, " reward ", reward, " Done", done, "Reason", reason)
     return this_reward, diff_step, num_of_dead, num_of_lost_devices, scenario_completed
 
 
@@ -472,13 +477,14 @@ def run_scenario(action_list, at_house1, at_house2, at_point1, at_point2, at_sca
             right_now = time.time()
             diff = right_now - start_time_y
             if diff >= timer_y_period:
-                add_action(action_list, 'TAKE_PATH', 'UGV', ('Path2', Point()))  # ZZZ needs goal
+                add_action(action_list, 'TAKE_PATH', 'UGV', ('Path2', Point()))
                 ugv_state.phase2()
         elif ugv_state.is_point2:
-            if dist3d(ugv_entity.gpoint, at_point2) <= min_dist:  # ZZZ needs Point2
+            if dist3d(ugv_entity.gpoint, at_point2) <= min_dist:
                 # Reach Point2
                 # What to do?
-                done = True
+                #done = True
+                print("Don't know what to do: ugv at point2")
 
         # Take care of suicide
         if scd_state.is_suicide2:
