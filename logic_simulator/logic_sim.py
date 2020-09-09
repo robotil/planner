@@ -19,7 +19,7 @@ class LogicSim(gym.Env):
     
 
     ACTIONS_TO_METHODS = {
-        'MOVE_TO':{SuicideDrone: Drone.go_to, SensorDrone: Drone.go_to, Ugv: Ugv.go_to},
+        'MOVE_TO':{SuicideDrone: Drone.go_to, SensorDrone: Drone.go_to},
         'LOOK_AT':{SuicideDrone: Drone.look_at, SensorDrone: Drone.look_at, Ugv: Ugv.look_at},
         'ATTACK':{SuicideDrone: SuicideDrone.attack, Ugv: Ugv.attack},
         'TAKE_PATH':{Ugv: Ugv.go_to}

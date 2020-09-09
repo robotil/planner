@@ -37,10 +37,12 @@ class PlannerEnv(gym.Env):
     class Enemy:
         def __init__(self, msg):
             self.cep = msg.cep
-            self.gpoint = msg.gpose
+            #self.gpoint = msg.gpose
+            self.gpoint = Point(x=-0.000204155, y=0.00035984, z=0.044715006)
             self.priority = msg.priority
             self.tclass = msg.tclass
-            self.is_alive = msg.is_alive
+            self.is_alive = True
+            #self.is_alive = msg.is_alive
             self.id = msg.id
 
         def update(self, n_enn):

@@ -17,7 +17,7 @@ class Enemy(Entity):
     def step(self):
         offset_axis = [np.array([1.0,0.0,0.0]), np.array([0.0,1.0,0.0])]
         offset_dir = [1,-1]
-        max_offset = 1.0
+        max_offset = 1.0 / 100000.0
         offset = max_offset * random.random() * random.choice(offset_dir) * random.choice(offset_axis)
         assert not offset is None
         self._pos.add(offset)
