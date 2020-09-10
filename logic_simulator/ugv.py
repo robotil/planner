@@ -4,16 +4,15 @@ import numpy as np
 import copy
 import logging
 
-class Ugv(Entity):
 
+class Ugv(Entity):
     # for L.L.A.
     MAX_ACC_MPS2 = 2.1 / 100000.0
     MAX_DECC_MPS2 = 12.1 / 100000.0
     MAX_YAW_RATE_DEG_SEC = 90.0 / 100000.0
-    MAX_SPEED_MPS = 5.5556 / 100000.0       # 20.0 Kmh
-    MAX_RANGE_OF_VIEW = 30 / 100000.0
+    MAX_SPEED_MPS = 5.5556 / 100000.0  # 20.0 Kmh
+    MAX_RANGE_OF_VIEW = 30 / 1000.0
     FIELD_OF_VIEW = 0.1745  # radians.   approx. 10 deg
-
 
     # for UTM
     # MAX_ACC_MPS2 = 2.1
@@ -25,17 +24,15 @@ class Ugv(Entity):
 
     paths = {}
 
-    
-    def __init__(self,id, pos: Pos):
-        super().__init__(id,pos)
+    def __init__(self, id, pos: Pos):
+        super().__init__(id, pos)
         self._current_path = ''
         self._current_path_wp_index = 0
-    
+
     def reset(self):
         super().reset()
         self._current_path = ''
         self._current_path_wp_index = 0
-
 
     @property
     def pos(self) -> Pos:
@@ -82,10 +79,10 @@ class Ugv(Entity):
             else:
                 logging.debug('Ugv go_to continue to index {}'.format(self._current_path_wp_index))
                 self._continue_to_current_target()
-    
+
     def is_line_of_sight_to(self, pos):
-         
-        range_to_target =  self.pos.distance_to(pos)
+
+        range_to_target = self.pos.distance_to(pos)
 
         is_los = range_to_target < Ugv.MAX_RANGE_OF_VIEW
 
@@ -95,22 +92,27 @@ class Ugv(Entity):
             direction_to_look_at = self.pos.direction_vector(self.looking_at)
 
             # cos alpha = A dot B / (norm A * norm B)
-            cos_angle = np.dot(direction_to_target , direction_to_look_at) / (range_to_target * range_to_look_at)
+            cos_angle = np.dot(direction_to_target, direction_to_look_at) / (range_to_target * range_to_look_at)
 
-            # first quater  - cos function decreasing
-            is_los  = cos_angle > np.cos(Ugv.FIELD_OF_VIEW)
+            # first quarter  - cos function decreasing
+            is_los = cos_angle > np.cos(Ugv.FIELD_OF_VIEW)
 
         return is_los
-    def attack(self, pos):
-        logging.info('Ugv Attack on {} {} {}'.format(pos.X, pos.Y, pos.Z))
 
-    def _reached_target(self, pos = None)->bool:
+    def attack(self, pos, enemies_in_danger):
+        logging.info('Ugv Attack on {} {} {}'.format(pos.X, pos.Y, pos.Z))
+        # TODO logic for uncertainty and CTE
+        for e in enemies_in_danger:
+            e.health = 0.0
+        self.health -= 0.05
+
+    def _reached_target(self, pos=None) -> bool:
         p = pos if (not (pos is None)) and isinstance(pos, Pos) else self._target_pos
         return self._pos.distance_to(p) <= self._speed
 
     def _change_target(self, target_wp: Pos):
         logging.debug("start pos {} velocity {} target_wp {}".format(self.pos, self.velocity, target_wp))
-        self._velocity_dir = np.array([target_wp.X - self._pos.X,target_wp.Y - self._pos.Y,target_wp.Z - self._pos.Z])
+        self._velocity_dir = np.array([target_wp.X - self._pos.X, target_wp.Y - self._pos.Y, target_wp.Z - self._pos.Z])
         self._velocity_dir = self._velocity_dir / np.linalg.norm(self._velocity_dir)
         self._speed = 0.0
         self._target_pos = copy.copy(target_wp)
@@ -118,15 +120,16 @@ class Ugv(Entity):
 
     def _hover_in_place(self):
         logging.debug("start pos {} velocity {} _target_pos {}".format(self.pos, self.velocity, self._target_pos))
-        self._velocity_dir = np.array([0.0,0.0,0.0],dtype=float)
+        self._velocity_dir = np.array([0.0, 0.0, 0.0], dtype=float)
         self._speed = 0.0
         # self._target_pos = self._pos
         logging.debug("end pos {} velocity {} _target_pos {}".format(self.pos, self.velocity, self._target_pos))
 
     def _continue_to_current_target(self):
         logging.debug("start pos {} velocity {} _target_pos {}".format(self.pos, self.velocity, self._target_pos))
-        self._speed  = max(self._speed + Ugv.MAX_ACC_MPS2, Ugv.MAX_SPEED_MPS)
-        self._velocity_dir = np.array([self._target_pos.X - self._pos.X,self._target_pos.Y - self._pos.Y,self._target_pos.Z - self._pos.Z])
+        self._speed = max(self._speed + Ugv.MAX_ACC_MPS2, Ugv.MAX_SPEED_MPS)
+        self._velocity_dir = np.array(
+            [self._target_pos.X - self._pos.X, self._target_pos.Y - self._pos.Y, self._target_pos.Z - self._pos.Z])
         self._velocity_dir = self._velocity_dir / np.linalg.norm(self._velocity_dir)
         velocity = self._speed * self._velocity_dir
         self._pos.add(velocity)
@@ -135,7 +138,7 @@ class Ugv(Entity):
     def step(self, *args):
         assert len(args) == 2
         assert isinstance(args[0], Pos)
-        assert isinstance(args[1], int) 
+        assert isinstance(args[1], int)
         target_wp = args[0]
         path_id = args[1]
         self._t += 1.0

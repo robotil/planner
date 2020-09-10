@@ -11,7 +11,7 @@ class Drone(Entity):
     MAX_DECC_MPS2 = 12.1 / 100000.0
     MAX_YAW_RATE_DEG_SEC = 90.0 / 100000.0
     MAX_SPEED_MPS = 5.5556 / 100000.0  # 20.0 Kmh
-    MAX_RANGE_OF_VIEW = 30 / 100000.0
+    MAX_RANGE_OF_VIEW = 30 / 1000.0
     FIELD_OF_VIEW = 0.1745  # radians.   approx. 10 deg
 
     # MAX_ACC_MPS2 = 2.1
