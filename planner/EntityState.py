@@ -3,10 +3,15 @@
 from statemachine import StateMachine, State
 
 class UGVLocalMachine(StateMachine):
+    #First Position
     zero = State('Zero', initial=True)
+    #Goal Point of Path_1
     point1 = State('Point1')
+    #Move and check for enemy during time
     wait1 = State('Wait1')
+    #After wait1, shoot window1 and wait more time
     wait2 = State('Wait2')
+    #After wait2 and nothing, move along Path2
     point2 = State('Point2')
 
     phase1 = zero.to(point1)
@@ -22,13 +27,14 @@ class SuicideLocalMachine(StateMachine):
     suicideZZ = State('SuicideZZ')
 
     # Used: phase_i_2, phase3, phase4
+    # Phases ZZ are for when scan saw enemy and asked suicide to go there
     phase_i_1 = zero.to(suicide1)
     phase_i_2 = zero.to(suicide2)
     phase2 = suicide1.to(suicide2)
     phase3 = suicide2.to(suicide3)
     phase4 = suicide3.to(suicide2)
     phaseZZ_3 = suicideZZ.to(suicide3)
-    phase2_ZZ = suicide1.to(suicideZZ)
+    phase2_ZZ = suicide2.to(suicideZZ)
     phase3_ZZ = suicide3.to(suicideZZ)
 
 

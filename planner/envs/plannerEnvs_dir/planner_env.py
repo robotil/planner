@@ -37,10 +37,12 @@ class PlannerEnv(gym.Env):
     class Enemy:
         def __init__(self, msg):
             self.cep = msg.cep
-            self.gpoint = msg.gpose
+            #self.gpoint = msg.gpose
+            self.gpoint = Point(x=-0.000204155, y=0.00035984, z=0.044715006)
             self.priority = msg.priority
             self.tclass = msg.tclass
-            self.is_alive = msg.is_alive
+            self.is_alive = True
+            #self.is_alive = msg.is_alive
             self.id = msg.id
 
         def update(self, n_enn):
@@ -51,13 +53,14 @@ class PlannerEnv(gym.Env):
             self.is_alive = n_enn.is_alive
 
     class Entity:
-        def __init__(self, msg, state='zero'):
+        def __init__(self, msg):
+            # def __init__(self, msg, state='zero'):
             self.id = msg.id
             self.diagstatus = msg.diagstatus
             self.gpoint = Point()
             self.imu = Imu()
             self.health = KeyValue()
-            self.state = state
+            # self.state = state
 
         def update_desc(self, n_ent):
             self.diagstatus = n_ent.diagstatus
@@ -308,9 +311,10 @@ class PlannerEnv(gym.Env):
         self.init_env()
 
         # wait for simulation to set up
-        while True:  # wait for all topics to arrive
-            if bool(self.entities):  # if there is some data:
-                break
+        # Temporary comments
+        ## while True:  # wait for all topics to arrive
+        ##     if bool(self.entities):  # if there is some data:
+        ##         break
 #            if bool(self.entities) and bool(self.enemies):  # if there is some data:
 
 
@@ -356,24 +360,23 @@ class PlannerEnv(gym.Env):
         self._obs = self.update_state()
 
         # calc step reward and add to total
-        r_t = self.reward_func()
+        # r_t = self.reward_func()
 
         # check if done
-        done, final_reward, reset = self.end_of_episode()
+        # done, final_reward, reset = self.end_of_episode()
 
-        step_reward = r_t + final_reward
-        self.total_reward = self.total_reward + step_reward
+        # step_reward = r_t + final_reward
+        # self.total_reward = self.total_reward + step_reward
 
-        self.done = done
-        if done:
-            self.enemies = {}
-            self.entities = {}
-            print('Done ')
+        # self.done = done
+        # if done:
+        #     self.enemies = {}
+        #     self.entities = {}
+        #     print('Done ')
 
-        info = {"state": self._obs, "action": action, "reward": self.total_reward, "step": self.steps,
-                "reset reason": reset}
+        info = {"state": self._obs, "action": action, "reward": self.total_reward, "step": self.steps }
 
-        return self._obs, step_reward, done, info
+        return self._obs, info
 
     def end_of_episode(self):
         done = False
