@@ -13,15 +13,14 @@ class Ugv(Entity):
     FIELD_OF_VIEW = 0.1745  # radians.   approx. 10 deg
     paths = {}
 
-    
-    def __init__(self,id, pos: Pos):
-        super().__init__(id,pos)
-        self._current_path = 0
+    def __init__(self, id, pos: Pos):
+        super().__init__(id, pos)
+        self._current_path = ''
         self._current_path_wp_index = 0
     
     def reset(self):
         super().reset()
-        self._current_path = 0
+        self._current_path = ''
         self._current_path_wp_index = 0
 
 
@@ -89,8 +88,13 @@ class Ugv(Entity):
             is_los  = cos_angle > np.cos(Ugv.FIELD_OF_VIEW)
 
         return is_los
-    def attack(self, pos):
+
+    def attack(self, pos, enemies_in_danger):
         logging.info('Ugv Attack on {} {} {}'.format(pos.X, pos.Y, pos.Z))
+        # TODO logic for uncertainty and CTE
+        for e in enemies_in_danger:
+            e.health = 0.0
+        self.health -= 0.05
 
     def _reached_target(self, pos = None)->bool:
         p = pos if (not (pos is None)) and isinstance(pos, Pos) else self._target_pos

@@ -61,6 +61,10 @@ class Entity:
     def health(self):
         return self._health
 
+    @health.setter
+    def health(self, h):
+        self._health = h
+
     @property
     def looking_at(self)->Pos:
         return self._looking_at

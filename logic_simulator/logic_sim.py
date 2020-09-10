@@ -16,8 +16,7 @@ class LogicSim(gym.Env):
     MAX_STEPS = 1000
     NUM_OF_ENTITIES = 3
     NUM_OF_ENEMIES = 1
-    
-
+    EPSILON = 0.00001
     ACTIONS_TO_METHODS = {
         'MOVE_TO':{SuicideDrone: Drone.go_to, SensorDrone: Drone.go_to, Ugv: Ugv.go_to},
         'LOOK_AT':{SuicideDrone: Drone.look_at, SensorDrone: Drone.look_at, Ugv: Ugv.look_at},
@@ -74,14 +73,14 @@ class LogicSim(gym.Env):
         assert False, 'Env cannot be rendered'
 
     def step(self, actions):
-        '''
+        """
         actions - dictionary of actions_id to entity_id-params pairs
                 e.g. actions = {'MOVE_TO':[{'SensorDrone': (target_wp1)},{'Suicide': (target_wp2)}],
                     'LOOK_AT':[{'SensorDrone': (target_wp3)}],
                     'ATTACK':[],
                     'TAKE_PATH':[{'UGV':('Path1',target_wp3)}]}
 
-        '''
+        """
         self._step += 1
 
         self._execute_entities_actions(actions)
@@ -115,12 +114,18 @@ class LogicSim(gym.Env):
                         'self._entities does not have key {}'.format(str(entity_id)) 
                     entity = self._entities[entity_id]
                     method = LogicSim.ACTIONS_TO_METHODS[action_name][entity.__class__]
-                    if isinstance(params, tuple):
-                        method(entity, *params)
-                    else:
-                        method(entity, params)
-    
-    
+                    if action_name == 'ATTACK':
+                        assert isinstance(params, tuple), 'params should be tuple Michele'
+                        assert isinstance(params[0],Pos), "ATTACK gets a Pos to attack"
+                        pos = params[0]
+                        enemies_in_danger = [e for e in self._enemies if e.pos.distance_to(pos) < LogicSim.EPSILON]
+                        param_list = list(params)
+                        param_list.append(enemies_in_danger)
+                        params = tuple(param_list)
+                    method(entity, *params)
+
+
+
     def reward(self):
         return 0.0
     

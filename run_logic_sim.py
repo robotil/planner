@@ -13,12 +13,11 @@ from logic_simulator.pos import Pos
 from logic_simulator.logic_sim import LogicSim
 from logic_simulator.enemy import Enemy
 
-
+LOGGER_LEVEL = logging.INFO
 
 UGV_START_POS = Pos(0.0, 0.0, 0.0)
 SENSOR_DRONE_START_POS = Pos(1.0, 0.0, 30.0)
 SUICIDE_DRONE_START_POS = Pos(0.0, 1.0, 15.0)
-
 NORTH_WEST = Pos(500.0, 200.0, 30.0)
 NORTH_EAST = Pos(500.0, 300.0, 30.0)
 SOUTH_WEST = Pos(400.0, 200.0, 30.0)
@@ -29,16 +28,11 @@ NORTH_WINDOW_POS = Pos(490.0, 250.0, 10.0)
 SOUTH_WINDOW_POS = Pos(410.0, 250.0, 10.0)
 EAST_WINDOW_POS = Pos(450.0, 270.0, 10.0)
 SOUTH_WEST_UGV_POS = Pos(350.0, 190.0, 30.0)
-
 TIME_TO_STIMULATE_1 = LogicSim.MAX_STEPS / 4
 TIME_TO_STIMULATE_2 = 3 * LogicSim.MAX_STEPS / 4
-
 PATH_ID = 1
-
-
 SUICIDE_WPS = [NORTH_WEST, NORTH_EAST]
 OBSERVER_WPS = [NORTH_EAST, SOUTH_EAST]
-
 ENEMY_POS = Pos(450.0, 240.0, 10.0)
 
 
@@ -207,5 +201,5 @@ def configure_logger():
 if __name__ == "__main__":
     # test_logic_sim()
     root = configure_logger()
-    root.setLevel(logging.INFO)
+    root.setLevel(LOGGER_LEVEL)
     simple_building_ambush()
