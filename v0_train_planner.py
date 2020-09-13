@@ -90,12 +90,14 @@ def compute_reward(rel_diff_step, num_of_dead, num_of_lost_devices, scenario_com
     # With which platform?
     # How long did it take
     reward = 0
+    total_num_of_enemies = 1
+    total_num_of_devices = 3
     if scenario_completed:
         reward = -10
         if num_of_lost_devices != 0:
             reward = reward - 10  # nothing accomplished and we lost a drone!
         return reward  # = 0
-    reward = 10 * num_of_dead - 5 * num_of_lost_devices + 0.1 * rel_diff_step
+    reward = num_of_dead/total_num_of_enemies - num_of_lost_devices/total_num_of_devices + 0.1 * rel_diff_step
     return reward
 
 
