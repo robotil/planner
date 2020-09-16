@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import random
 from logic_simulator.drone import Drone
@@ -10,7 +12,9 @@ import copy
 from itertools import chain
 import gym
 import logging
-
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+import matplotlib
 
 class LogicSim(gym.Env):
     NUM_ACTIONS = 4
@@ -61,6 +65,12 @@ class LogicSim(gym.Env):
         self._entities = entities
         self._enemies = enemies
         self._step = 0
+        self._fig = plt.figure()
+        self._ax = self._fig.add_subplot(111, projection='3d')
+        self._scatter = None
+        matplotlib.interactive(True)
+
+
         print(LogicSim.observation_space)
 
     def reset(self):
@@ -70,8 +80,23 @@ class LogicSim(gym.Env):
         return self._get_obs()
 
     def render(self, mode='human'):
-        logging.error('Env cannot be rendered')
-        assert False, 'Env cannot be rendered'
+        # logging.error('Env cannot be rendered')
+        # assert False, 'Env cannot be rendered'
+
+        positions = [(e.pos.x, e.pos.y, e.pos.z, 'r' if isinstance(e, Enemy) else 'b') for e in
+                     chain(self._entities.values(), self._enemies)]
+        res = list(zip(*positions))
+        if not self._scatter is None:
+            # self._scatter.remove()
+            self._ax.cla()
+        self._scatter = self._ax.scatter(res[0], res[1], res[2], c=res[3], marker='o')
+
+        self._ax.set_xlabel('X')
+        self._ax.set_ylabel('Y')
+        self._ax.set_zlabel('Z')
+
+        plt.draw()
+        plt.pause(0.02)
 
     def step(self, actions):
         """
@@ -158,5 +183,3 @@ class LogicSim(gym.Env):
             s += str(e)
             s += '\n'
         return str(s)
-
-

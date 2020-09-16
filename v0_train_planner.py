@@ -179,6 +179,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
     #    log_obs = logic_sim._get_obs()
     start_time_x = time.time()  # timer for ugv along path1
     while not done:
+        logic_sim.render()
         obs, reward, done, _ = logic_sim.step(action_list)
         step = step + 1
         if done:
