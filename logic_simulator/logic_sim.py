@@ -17,7 +17,7 @@ class LogicSim(gym.Env):
     MAX_STEPS = 1000
     NUM_OF_ENTITIES = 3
     NUM_OF_ENEMIES = 1
-    EPSILON = 0.00001
+    EPSILON = 0.1
     ACTIONS_TO_METHODS = {
         'MOVE_TO': {SuicideDrone: Drone.go_to, SensorDrone: Drone.go_to},
         'LOOK_AT': {SuicideDrone: Drone.look_at, SensorDrone: Drone.look_at, Ugv: Ugv.look_at},
@@ -111,17 +111,18 @@ class LogicSim(gym.Env):
                         'self._entities does not have key {}'.format(str(entity_id))
                     entity = self._entities[entity_id]
                     method = LogicSim.ACTIONS_TO_METHODS[action_name][entity.__class__]
-                    if action_name == 'ATTACK':
-                        assert isinstance(params, tuple), 'params should be tuple Michele'
-                        assert isinstance(params[0],Pos), "ATTACK gets a Pos to attack"
-                        pos = params[0]
-                        enemies_in_danger = [e for e in self._enemies if e.pos.distance_to(pos) < LogicSim.EPSILON]
-                        param_list = list(params)
-                        param_list.append(enemies_in_danger)
-                        params = tuple(param_list)
+                    params = self._parse_attack_params(params) if action_name == 'ATTACK' else params
                     method(entity, *params)
 
-
+    def _parse_attack_params(self, params):
+        assert isinstance(params, tuple), 'params should be tuple'
+        assert isinstance(params[0], Pos), "ATTACK gets a Pos to attack"
+        pos = params[0]
+        enemies_in_danger = [e for e in self._enemies if e.pos.distance_to(pos) < LogicSim.EPSILON]
+        param_list = list(params)
+        param_list.append(enemies_in_danger)
+        params = tuple(param_list)
+        return params
 
     def reward(self):
         return 0.0
@@ -134,6 +135,8 @@ class LogicSim(gym.Env):
         for enemy in self._enemies:
             match_los[enemy.id] = [entity for entity in self._entities.values() if
                                    entity.is_line_of_sight_to(enemy.pos)]
+            if len(match_los[enemy.id]) > 0:
+                logging.info('{} in line of sight !!!'.format(enemy.id))
         return match_los
 
     def clone(self):

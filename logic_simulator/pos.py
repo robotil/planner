@@ -46,7 +46,8 @@ class Pos:
 
 
     def direction_vector(self, other):
-        return np.array([other.X - self.X, other.Y - self.Y, other.Z - self.Z])
+        direction = np.array([other.X - self.X, other.Y - self.Y, other.Z - self.Z])
+        return direction / np.linalg.norm(direction)
     
     def __str__(self):
         return "({X},{Y},{Z})".format(X=self.X,Y=self.Y,Z=self.Z)

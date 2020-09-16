@@ -97,7 +97,7 @@ def compute_reward(rel_diff_step, num_of_dead, num_of_lost_devices, scenario_com
         if num_of_lost_devices != 0:
             reward = reward - 10  # nothing accomplished and we lost a drone!
         return reward  # = 0
-    reward = num_of_dead/total_num_of_enemies - num_of_lost_devices/total_num_of_devices + 0.1 * rel_diff_step
+    reward = num_of_dead / total_num_of_enemies - num_of_lost_devices / total_num_of_devices + 0.1 * rel_diff_step
     return reward
 
 
@@ -131,26 +131,6 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
                     at_suicide1, at_suicide2, at_suicide3, at_window1, env, min_dist, start_time_x, start_time_y,
                     start_time_zz, timer_x_period, timer_y_period, timer_zz_period):
     # Wait until there is some enemy
-    lg_ugv.paths = {
-        'Path1': [Pos(833932, 9999643, -0.002014097),
-                  Pos(833930, 9999659, -0.00201692),
-                  Pos(833949, 9999705, -0.002015802),
-                  Pos(833961, 9999750, -0.002001679),
-                  Pos(166035, 9999820, -0.001996697),
-                  Pos(166043, 9999863, -0.001994319),
-                  Pos(166042, 9999902, -0.002000888),
-                  Pos(166040, 9999922, -0.001997083),
-                  Pos(166038, 9999928, -0.001997412),
-                  Pos(166041, 9999929, -0.001997043)
-                  ],
-                  							
-        'Path2': [Pos(166041, 9999928, -0.194341013),
-                  Pos(166047, 9999938, -0.001999665),
-                  Pos(166048, 9999946, -0.001995918),
-                  Pos(166048, 9999946, -0.00199512)
-                  ]
-    }
-			
     x = threading.Thread(target=populate, args=())
     print("Before running thread")
     x.start()
@@ -211,7 +191,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
                     num_of_lost_devices += 1
             break
         if step > logic_sim.MAX_STEPS:
-            reason = "step is "+step._str__()
+            reason = "step is " + step._str__()
             done = True
             break
 
@@ -229,7 +209,6 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
                 reason = "Enemy is dead"
                 done = True
                 break
-
 
         # Check if there is an enemy in line of sight
         # los is a dictionary of enemies and each enemy has a list of entities in los
@@ -253,7 +232,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
                             add_action(action_list, 'ATTACK', ent0.id, (our_enemy.pos,))
                             found_ugv = True
                             attacking_los = True
-                            break #Get out of the loop
+                            break  # Get out of the loop
                         elif ent0.id == "Suicide":
                             # We can commit suicide
                             found_suicide = True
@@ -307,7 +286,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
                 if dist3d(log_ugv.pos, at_point2) <= min_dist:  # ZZZ needs Point2
                     # Reach Point2
                     # What to do?
-                    #done = True
+                    # done = True
                     print("Don't know what to do")
                 else:
                     add_action(action_list, 'TAKE_PATH', 'UGV', ('Path2', at_point2))
@@ -389,7 +368,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
         ### done is True
     ### Compute reward
     diff_step = logic_sim.MAX_STEPS - step + 1
-    diff_step = diff_step/logic_sim.MAX_STEPS
+    diff_step = diff_step / logic_sim.MAX_STEPS
     this_reward = compute_reward(diff_step, num_of_dead, num_of_lost_devices, scenario_completed)
     print("LALALALA - Scenario completed: step ", step, " reward ", this_reward, " Done", done, "Reason", reason)
     return this_reward, diff_step, num_of_dead, num_of_lost_devices, scenario_completed
@@ -482,7 +461,7 @@ def run_scenario(action_list, at_house1, at_house2, at_point1, at_point2, at_sca
                             # Tell suicide to get close to the enemy so that it will be able
                             # to attack him eventually
                             last_goal_for_suicide = enemy.gpoint
-                            add_action(action_list, 'MOVE_TO', 'Suicide', (enemy.gpoint, ))
+                            add_action(action_list, 'MOVE_TO', 'Suicide', (enemy.gpoint,))
                             if scd_state.is_suicide2:
                                 scd_state.phase2_ZZ()
                             elif scd_state.is_suicide3:
@@ -495,9 +474,9 @@ def run_scenario(action_list, at_house1, at_house2, at_point1, at_point2, at_sca
         # Take care of UGV
         if not attacking_los:
             if ugv_state.is_point1:
-                 add_action(action_list, 'TAKE_PATH', 'UGV', ('Path1', at_point1)) # Repeat
-                 ugv_state.phase2()
-                 start_time_x = time.time()
+                add_action(action_list, 'TAKE_PATH', 'UGV', ('Path1', at_point1))  # Repeat
+                ugv_state.phase2()
+                start_time_x = time.time()
             elif ugv_state.is_wait1:
                 # Check time
                 right_now = time.time()
@@ -517,7 +496,7 @@ def run_scenario(action_list, at_house1, at_house2, at_point1, at_point2, at_sca
                 if dist3d(ugv_entity.gpoint, at_point2) <= min_dist:
                     # Reach Point2
                     # What to do?
-                    #done = True
+                    # done = True
                     print("Don't know what to do: ugv at point2")
                 else:
                     add_action(action_list, 'TAKE_PATH', 'UGV', ('Path2', at_point2))
@@ -598,7 +577,6 @@ def run_scenario(action_list, at_house1, at_house2, at_point1, at_point2, at_sca
                     add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1,))
                     scd_state.phase5()
 
-
         ### done is True
     ### Compute reward
 
@@ -621,23 +599,41 @@ def play(save_dir, env):
     at_point2 = Point(x=-0.00048394, y=0.000241653, z=-0.001000144)
     at_window1 = Point(x=-0.000501812, y=0.000386798, z=3.95291735)
 
-    # Logical
-    lg_scanner1 = Pos(x=-0.000531347, y=0.001073413, z=25.4169386)
-    lg_scanner2 = Pos(x=-4.25E-05, y=0.000951778, z=23.7457949)
-    lg_scanner3 = Pos(x=0.000144236, y=0.000308294, z=23.2363825)
+    lg_ugv.paths = {
+        'Path1': [Pos(-47, -359, 1.00792499),
+                  Pos(-49, -341, 1.04790355),
+                  Pos(-29, -295, 0.40430533),
+                  Pos(-17, -250, 1.06432373),
+                  Pos(14, -180, 0.472875877),
+                  Pos(22, -137, 1.80694756),
+                  Pos(21, -98, 0.002950645),
+                  Pos(19, -78, - 0.194334967),
+                  Pos(17, -72, - 0.000997688),
+                  Pos(19, -71, - 0.194334959)
+                  ],
+        'Path2': [Pos(19, -72, - 0.194336753),
+                  Pos(26, -62, - 0.001001044),
+                  Pos(26, -54, - 0.001001044),
+                  Pos(27, -54, - 0.001000144)
+                  ]
+    }
 
-    lg_house1 = Pos(x=-0.00052199, y=0.000427823, z=3.47494171)
-    lg_house2 = Pos(x=-0.000473681, y=0.000458237, z=3.94403081)
-    lg_house3 = Pos(x=-0.000422862, y=0.000418143, z=3.47494102)
+    lg_scanner1 = Pos(120, -59, 25.4169388)
+    lg_scanner2 = Pos(106, -5, 23.7457948)
+    lg_scanner3 = Pos(34, 16, 23.2363824)
 
-    lg_suicide1 = Pos(x=-0.000608696, y=0.000743706, z=20.2996389)
-    lg_suicide2 = Pos(x=-0.000177843, y=0.000730626, z=20.5166236)
-    lg_suicide3 = Pos(x=-0.000118638, y=0.000438844, z=19.8076561)
+    lg_house1 = Pos(48, -58, 3.47494173)
+    lg_house2 = Pos(51,	-52, 3.94403049)
+    lg_house3 = Pos(47, -47, 3.4749414)
+
+    lg_suicide1 = Pos(83, -67, 20.2996388)
+    lg_suicide2 = Pos(81, -20, 20.5166231)
+    lg_suicide3 = Pos(49, -13, 19.8076557)
 
     # ZZZZ Has to be changed with real values. They are the coordinates that the UGV should reach on path1 and path2 respective
-    lg_point1 = Pos(x=-0.000638552, y=0.000171134, z=-0.194334959)
-    lg_point2 = Pos(x=-0.00048394, y=0.000241653, z=-0.001000144)
-    lg_window1 = Pos(x=-0.000501812, y=0.000386798, z=3.95291735)
+    lg_point1 = lg_ugv.paths['Path1'][-1]
+    lg_point2 = lg_ugv.paths['Path2'][-1]
+    lg_window1 = Pos(43, -56, 3.95291735)
 
     timer_x_period = 10.0  # First timer UGV
     timer_y_period = 10.0  # Second timer UGV
@@ -649,7 +645,7 @@ def play(save_dir, env):
     end_of_session = False
     session_num = 1
     root = configure_logger()
-    root.setLevel(logging.DEBUG)
+    root.setLevel(logging.INFO)
 
     while not end_of_session:
         action_list = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
