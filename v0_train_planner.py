@@ -302,7 +302,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
                     else:
                         # Just stay in position and wait for scan drone
                         print(
-                            "Step:" + step.__str__() + " Suicide in state:" + scd_state.current_state.__str__() + " is waiting for scan drone")
+                            "Step:" + step.__str__() + " Suicide in state:" + scd_state.current_state.value + " is waiting for scan drone dist=" + ascii(dist3d(log_scd.pos, at_scanner1)))
                 else:
                     add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2,))
             elif scd_state.is_suicide3:
@@ -313,7 +313,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
                     else:
                         # Just stay in position and wait for scan drone
                         print(
-                            "Step:" + step + " Suicide in state:" + scd_state.current_state + " is waiting for scan drone")
+                            "Step:" + step + " Suicide in state:" + scd_state.current_state.value + " is waiting for scan drone dist=" + ascii(dist3d(log_scd.pos, at_scanner2)))
                 else:
                     add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide3,))
             elif scd_state.is_suicideZZ:  ## Was asked to get close to enemy
@@ -328,7 +328,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
                         add_action(action_list, 'MOVE_TO', 'Suicide', (last_goal_for_suicide,))
                     else:
                         print(
-                            "VERY WRONG: Step:" + step.__str__() + " Suicide in state:" + scd_state.current_state.__str__() + " without last_goal_for_suicide")
+                            "VERY WRONG: Step:" + step.__str__() + " Suicide in state:" + scd_state.current_state.value + " without last_goal_for_suicide")
             elif scd_state.is_suicide1:  ## Shouldn't happen
                 if dist3d(log_scd.pos, at_suicide1) <= min_dist:
                     add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2,))
@@ -344,7 +344,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
                         drn_state.phase2()
                     else:
                         print(
-                            "Step:" + step.__str__() + " Scanner Drone in state:" + drn_state.current_state.__str__() + " is waiting for suicide drone")
+                            "Step:" + step.__str__() + " Scanner Drone in state:" + drn_state.current_state.value + " is waiting for suicide drone dist=", ascii(dist3d(log_scd.pos, at_suicide2)))
                 else:
                     add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1,))
                     add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1,))
@@ -356,7 +356,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
                         drn_state.phase3()
                     else:
                         print(
-                            "Step:" + step.__str__() + " Scanner Drone in state:" + drn_state.current_state.__str__() + " is waiting for suicide drone")
+                            "Step:" + step.__str__() + " Scanner Drone in state:" + drn_state.current_state.value + " is waiting for suicide drone", ascii(dist3d(log_scd.pos, at_suicide3)))
                 else:
                     add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner2))
                     add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house2))
