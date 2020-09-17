@@ -29,7 +29,7 @@ class Drone(Entity):
         self._change_target(target_wp)
 
     def go_to(self, target_wp):
-        logging.info('Drone go_to {} {} {}'.format(target_wp.X, target_wp.Y, target_wp.Z))
+        logging.info('Drone go_to {} {} {}'.format(target_wp.x, target_wp.y, target_wp.z))
         if not self._target_pos.equals(target_wp):
             # commanded target has changed
             self._change_target(target_wp)
@@ -58,8 +58,8 @@ class Drone(Entity):
         return is_los
 
     def look_at(self, pos):
-        logging.info('Drone look_at {} {} {}'.format(pos.X, pos.Y, pos.Z))
-        assert pos.Z < 30
+        logging.info('Drone look_at {} {} {}'.format(pos.x, pos.y, pos.z))
+        assert pos.z < 30
         self._looking_at = copy.copy(pos)
 
     def step(self, *args):
@@ -115,11 +115,11 @@ class Drone(Entity):
         return predicted_pos, predicted_speed
 
     def _reached_target(self) -> bool:
-        return self._pos.distance_to(self._target_pos) <= self._speed
+        return self._pos.distance_to(self._target_pos) <= self._speed / 2.0
 
     def _change_target(self, target_wp: Pos):
         logging.debug("start pos {} velocity {} target_wp {}".format(self.pos, self.velocity, target_wp))
-        self._velocity_dir = np.array([target_wp.X - self._pos.X, target_wp.Y - self._pos.Y, target_wp.Z - self._pos.Z])
+        self._velocity_dir = np.array([target_wp.x - self._pos.x, target_wp.y - self._pos.y, target_wp.z - self._pos.z])
         self._velocity_dir = self._velocity_dir / np.linalg.norm(self._velocity_dir)
         self._speed = 0.0
         self._target_pos = copy.copy(target_wp)
@@ -136,7 +136,7 @@ class Drone(Entity):
         logging.debug("start pos {} velocity {} _target_pos {}".format(self.pos, self.velocity, self._target_pos))
         self._speed = max(self._speed + Drone.MAX_ACC_MPS2, Drone.MAX_SPEED_MPS)
         self._velocity_dir = np.array(
-            [self._target_pos.X - self._pos.X, self._target_pos.Y - self._pos.Y, self._target_pos.Z - self._pos.Z])
+            [self._target_pos.x - self._pos.x, self._target_pos.y - self._pos.y, self._target_pos.z - self._pos.z])
         self._velocity_dir = self._velocity_dir / np.linalg.norm(self._velocity_dir)
         velocity = self._speed * self._velocity_dir
         self._pos.add(velocity)

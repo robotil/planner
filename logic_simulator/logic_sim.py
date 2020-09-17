@@ -67,6 +67,7 @@ class LogicSim(gym.Env):
         self._step = 0
         self._fig = plt.figure()
         self._ax = self._fig.add_subplot(111, projection='3d')
+
         self._scatter = None
         matplotlib.interactive(True)
 
@@ -79,11 +80,14 @@ class LogicSim(gym.Env):
             e.reset()
         return self._get_obs()
 
+    def _marker_from_entity(self, e):
+        return "o" if isinstance(e, Ugv) else "^" if isinstance(e, SuicideDrone) else "*"
+
     def render(self, mode='human'):
         # logging.error('Env cannot be rendered')
         # assert False, 'Env cannot be rendered'
 
-        positions = [(e.pos.x, e.pos.y, e.pos.z, 'r' if isinstance(e, Enemy) else 'b') for e in
+        positions = [(e.pos.x, e.pos.y, e.pos.z, 'r' if isinstance(e, Enemy) else 'm' if isinstance(e, Ugv) else 'g' if isinstance(e, SuicideDrone) else 'b', self._marker_from_entity(e)) for e in
                      chain(self._entities.values(), self._enemies)]
         res = list(zip(*positions))
         if not self._scatter is None:
@@ -95,8 +99,12 @@ class LogicSim(gym.Env):
         self._ax.set_ylabel('Y')
         self._ax.set_zlabel('Z')
 
+        self._ax.set_xlim(-100.0, 200.0)
+        self._ax.set_ylim(-400.0, 100.0)
+        self._ax.set_zlim(-1.0, 30.0)
+
         plt.draw()
-        plt.pause(0.02)
+        plt.pause(0.1)
 
     def step(self, actions):
         """

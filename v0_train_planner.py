@@ -296,7 +296,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
         if not attacking_los:
             if scd_state.is_suicide2:
                 if dist3d(log_scd.pos, at_suicide2) <= min_dist:
-                    if dist3d(log_scd.pos, at_scanner1) <= 2 * min_dist:  # Check position of scan
+                    if dist3d(log_scd.pos, at_scanner1) <= 3 * min_dist:  # Check position of scan
                         add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide3,))
                         scd_state.phase3()
                     else:
@@ -307,7 +307,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
                     add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2,))
             elif scd_state.is_suicide3:
                 if dist3d(log_scd.pos, at_suicide3) <= min_dist:
-                    if dist3d(log_scd.pos, at_scanner2) <= 2 * min_dist:
+                    if dist3d(log_scd.pos, at_scanner2) <= 3 * min_dist:
                         add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2,))
                         scd_state.phase4()
                     else:
@@ -338,7 +338,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
         if not attacking_los:
             if drn_state.is_scanner1:
                 if dist3d(log_drn.pos, at_scanner1) <= min_dist:
-                    if dist3d(log_scd.pos, at_suicide2) <= 2 * min_dist:
+                    if dist3d(log_scd.pos, at_suicide2) <= 3 * min_dist:
                         add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner2))
                         add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house2))
                         drn_state.phase2()
@@ -350,7 +350,7 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
                     add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1,))
             elif drn_state.is_scanner2:
                 if dist3d(log_drn.pos, at_scanner2) <= min_dist:
-                    if dist3d(log_scd.pos, at_suicide3) <= 2 * min_dist:
+                    if dist3d(log_scd.pos, at_suicide3) <= 3 * min_dist:
                         add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1))
                         add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1))
                         drn_state.phase3()
@@ -601,40 +601,40 @@ def play(save_dir, env):
     at_window1 = Point(x=-0.000501812, y=0.000386798, z=3.95291735)
 
     lg_ugv.paths = {
-        'Path1': [Pos(-47, -359, 1.00792499),
-                  Pos(-49, -341, 1.04790355),
-                  Pos(-29, -295, 0.40430533),
-                  Pos(-17, -250, 1.06432373),
-                  Pos(14, -180, 0.472875877),
-                  Pos(22, -137, 1.80694756),
-                  Pos(21, -98, 0.002950645),
-                  Pos(19, -78, - 0.194334967),
-                  Pos(17, -72, - 0.000997688),
-                  Pos(19, -71, - 0.194334959)
+        'Path1': [Pos(-47.0, -359.0, 1.00792499),
+                  Pos(-49.0, -341.0, 1.04790355),
+                  Pos(-29.0, -295.0, 0.40430533),
+                  Pos(-17.0, -250.0, 1.06432373),
+                  Pos(14.0, -180.0, 0.472875877),
+                  Pos(22.0, -137.0, 1.80694756),
+                  Pos(21.0, -98.0, 0.002950645),
+                  Pos(19.0, -78.0, - 0.194334967),
+                  Pos(17.0, -72.0, - 0.000997688),
+                  Pos(19.0, -71.0, - 0.194334959)
                   ],
-        'Path2': [Pos(19, -72, - 0.194336753),
-                  Pos(26, -62, - 0.001001044),
-                  Pos(26, -54, - 0.001001044),
-                  Pos(27, -54, - 0.001000144)
+        'Path2': [Pos(19.0, -72.0, - 0.194336753),
+                  Pos(26.0, -62.0, - 0.001001044),
+                  Pos(26.0, -54.0, - 0.001001044),
+                  Pos(27.0, -54.0, - 0.001000144)
                   ]
     }
 
-    lg_scanner1 = Pos(120, -59, 25.4169388)
-    lg_scanner2 = Pos(106, -5, 23.7457948)
-    lg_scanner3 = Pos(34, 16, 23.2363824)
+    lg_scanner1 = Pos(120.0, -59.0, 25.4169388)
+    lg_scanner2 = Pos(106.0, -5.0, 23.7457948)
+    lg_scanner3 = Pos(34.0, 16.0, 23.2363824)
 
-    lg_house1 = Pos(48, -58, 3.47494173)
-    lg_house2 = Pos(51,	-52, 3.94403049)
-    lg_house3 = Pos(47, -47, 3.4749414)
+    lg_house1 = Pos(48.0, -58.0, 3.47494173)
+    lg_house2 = Pos(51.0, -52.0, 3.94403049)
+    lg_house3 = Pos(47.0, -47.0, 3.4749414)
 
-    lg_suicide1 = Pos(83, -67, 20.2996388)
-    lg_suicide2 = Pos(81, -20, 20.5166231)
-    lg_suicide3 = Pos(49, -13, 19.8076557)
+    lg_suicide1 = Pos(83.0, -67.0, 20.2996388)
+    lg_suicide2 = Pos(81.0, -20.0, 20.5166231)
+    lg_suicide3 = Pos(49.0, -13.0, 19.8076557)
 
     # ZZZZ Has to be changed with real values. They are the coordinates that the UGV should reach on path1 and path2 respective
     lg_point1 = lg_ugv.paths['Path1'][-1]
     lg_point2 = lg_ugv.paths['Path2'][-1]
-    lg_window1 = Pos(43, -56, 3.95291735)
+    lg_window1 = Pos(43.0, -56.0, 3.95291735)
 
     timer_x_period = 10.0  # First timer UGV
     timer_y_period = 10.0  # Second timer UGV
