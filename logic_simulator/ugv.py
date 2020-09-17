@@ -6,21 +6,13 @@ import logging
 
 
 class Ugv(Entity):
-    # for L.L.A.
-    MAX_ACC_MPS2 = 2.1 / 100000.0
-    MAX_DECC_MPS2 = 12.1 / 100000.0
-    MAX_YAW_RATE_DEG_SEC = 90.0 / 100000.0
-    MAX_SPEED_MPS = 5.5556 / 100000.0  # 20.0 Kmh
-    MAX_RANGE_OF_VIEW = 30 / 1000.0
-    FIELD_OF_VIEW = 0.1745  # radians.   approx. 10 deg
 
-    # for UTM
-    # MAX_ACC_MPS2 = 2.1
-    # MAX_DECC_MPS2 = 12.1
-    # MAX_YAW_RATE_DEG_SEC = 90.0
-    # MAX_SPEED_MPS = 5.5556  # 20.0 Kmh
-    # MAX_RANGE_OF_VIEW = 30
-    # FIELD_OF_VIEW = 0.1745  # radians.   approx. 10 deg
+    MAX_ACC_MPS2 = 2.1
+    MAX_DECC_MPS2 = 12.1
+    MAX_YAW_RATE_DEG_SEC = 90.0
+    MAX_SPEED_MPS = 5.5556  # 20.0 Kmh
+    MAX_RANGE_OF_VIEW = 10
+    FIELD_OF_VIEW = 0.1745  # radians.   approx. 10 deg
 
     paths = {}
 
@@ -47,7 +39,7 @@ class Ugv(Entity):
         self._looking_at = copy.copy(pos)
 
     def go_to(self, path_id, target_wp):
-        logging.info('Ugv go_to path_id{} ({},{},{})'.format(path_id, target_wp.X, target_wp.Y, target_wp.Z))
+        logging.info('Ugv go_to path_id{} ({},{},{})'.format(path_id, target_wp.x, target_wp.y, target_wp.z))
         if self._reached_target(target_wp):
             logging.info('Ugv go_to command satisfied')
             # go_to command satisfied
@@ -100,7 +92,7 @@ class Ugv(Entity):
         return is_los
 
     def attack(self, pos, enemies_in_danger):
-        logging.info('Ugv Attack on {} {} {}'.format(pos.X, pos.Y, pos.Z))
+        logging.info('Ugv Attack on {} {} {}'.format(pos.x, pos.y, pos.z))
         # TODO logic for uncertainty and CTE
         for e in enemies_in_danger:
             e.health = 0.0
@@ -108,11 +100,11 @@ class Ugv(Entity):
 
     def _reached_target(self, pos=None) -> bool:
         p = pos if (not (pos is None)) and isinstance(pos, Pos) else self._target_pos
-        return self._pos.distance_to(p) <= self._speed
+        return self._pos.distance_to(p) <= self._speed / 2.0
 
     def _change_target(self, target_wp: Pos):
         logging.debug("start pos {} velocity {} target_wp {}".format(self.pos, self.velocity, target_wp))
-        self._velocity_dir = np.array([target_wp.X - self._pos.X, target_wp.Y - self._pos.Y, target_wp.Z - self._pos.Z])
+        self._velocity_dir = np.array([target_wp.x - self._pos.x, target_wp.y - self._pos.y, target_wp.z - self._pos.z])
         self._velocity_dir = self._velocity_dir / np.linalg.norm(self._velocity_dir)
         self._speed = 0.0
         self._target_pos = copy.copy(target_wp)
@@ -129,7 +121,7 @@ class Ugv(Entity):
         logging.debug("start pos {} velocity {} _target_pos {}".format(self.pos, self.velocity, self._target_pos))
         self._speed = max(self._speed + Ugv.MAX_ACC_MPS2, Ugv.MAX_SPEED_MPS)
         self._velocity_dir = np.array(
-            [self._target_pos.X - self._pos.X, self._target_pos.Y - self._pos.Y, self._target_pos.Z - self._pos.Z])
+            [self._target_pos.x - self._pos.x, self._target_pos.y - self._pos.y, self._target_pos.z - self._pos.z])
         self._velocity_dir = self._velocity_dir / np.linalg.norm(self._velocity_dir)
         velocity = self._speed * self._velocity_dir
         self._pos.add(velocity)

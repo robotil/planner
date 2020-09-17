@@ -4,7 +4,7 @@ import logging
 
 class SuicideDrone(Drone):
 
-    EPSILON = 0.0001
+    EPSILON = 0.1
 
     def __init__(self,id, pos: Pos):  
         super().__init__(id,pos)
