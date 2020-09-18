@@ -45,4 +45,4 @@ ros2 topic pub --once /entity/description planner_msgs/msg/SDiagnosticStatus "di
   values: []
 id: 'UGV'"
 
-
+ros2 topic pub --once /enemy/description planner_msgs/msg/EnemyReport "id: 'Sniper'"

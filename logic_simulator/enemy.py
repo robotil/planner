@@ -23,7 +23,7 @@ class Enemy(Entity):
         self._pos.add(offset)
     @property
     def state(self):
-         return [[self.pos.X, self.pos.Y, self.pos.Z], self.health, self.priority]
+         return [[self.pos.x, self.pos.y, self.pos.z], self.health, self.priority]
 
     def clone(self):
         e = Enemy(self.id, self.pos, self.priority)

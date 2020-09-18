@@ -47,7 +47,7 @@ class Entity:
 
     @property
     def state(self):
-        return np.array([[self.pos.X, self.pos.Y, self.pos.Z], self.velocity, [self.looking_at.X, self.looking_at.Y, self.looking_at.Z], self.health])
+        return np.array([[self.pos.x, self.pos.y, self.pos.z], self.velocity, [self.looking_at.x, self.looking_at.y, self.looking_at.z], self.health])
 
     @property
     def pos(self)->Pos:
