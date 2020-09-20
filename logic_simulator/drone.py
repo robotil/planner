@@ -6,12 +6,12 @@ import logging
 
 
 class Drone(Entity):
-    MAX_ACC_MPS2 = 2.1
-    MAX_DECC_MPS2 = 12.1
+    MAX_ACC_MPS2 = 2.1 * Entity.STEP_TIME * (Entity.STEP_TIME ** 2.0)
+    MAX_DECC_MPS2 = 12.1 * (Entity.STEP_TIME ** 2.0)
     MAX_YAW_RATE_DEG_SEC = 90.0
-    MAX_SPEED_MPS = 5.5556  # 20.0 Kmh
-    MAX_RANGE_OF_VIEW = 20  # meters
-    FIELD_OF_VIEW = 0.349  # radians.   approx. 20 deg
+    MAX_SPEED_MPS = 5.5556 * Entity.STEP_TIME  # 20.0 Kmh
+    MAX_RANGE_OF_VIEW = 45  # meters
+    FIELD_OF_VIEW = np.pi / 4.0  # radians.   45 deg.
 
     def __init__(self, id, pos: Pos):
         super().__init__(id, pos)
@@ -29,7 +29,8 @@ class Drone(Entity):
         self._change_target(target_wp)
 
     def go_to(self, target_wp):
-        logging.info('Drone go_to {} {} {}'.format(target_wp.x, target_wp.y, target_wp.z))
+        logging.debug('Drone go_to {} {} {}'.format(target_wp.x, target_wp.y, target_wp.z))
+        assert target_wp.z < 30
         if not self._target_pos.equals(target_wp):
             # commanded target has changed
             self._change_target(target_wp)
@@ -58,7 +59,7 @@ class Drone(Entity):
         return is_los
 
     def look_at(self, pos):
-        logging.info('Drone look_at {} {} {}'.format(pos.x, pos.y, pos.z))
+        logging.debug('Drone look_at {} {} {}'.format(pos.x, pos.y, pos.z))
         assert pos.z < 30
         self._looking_at = copy.copy(pos)
 
@@ -115,7 +116,7 @@ class Drone(Entity):
         return predicted_pos, predicted_speed
 
     def _reached_target(self) -> bool:
-        return self._pos.distance_to(self._target_pos) <= self._speed / 2.0
+        return self._pos.distance_to(self._target_pos) <= Drone.MAX_SPEED_MPS * 2.0
 
     def _change_target(self, target_wp: Pos):
         logging.debug("start pos {} velocity {} target_wp {}".format(self.pos, self.velocity, target_wp))

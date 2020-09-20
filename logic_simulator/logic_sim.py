@@ -21,13 +21,14 @@ class LogicSim(gym.Env):
     MAX_STEPS = 1000
     NUM_OF_ENTITIES = 3
     NUM_OF_ENEMIES = 1
-    EPSILON = 0.1
+    EPSILON = 5.0
     ACTIONS_TO_METHODS = {
         'MOVE_TO': {SuicideDrone: Drone.go_to, SensorDrone: Drone.go_to},
         'LOOK_AT': {SuicideDrone: Drone.look_at, SensorDrone: Drone.look_at, Ugv: Ugv.look_at},
         'ATTACK': {SuicideDrone: SuicideDrone.attack, Ugv: Ugv.attack},
         'TAKE_PATH': {Ugv: Ugv.go_to}
     }
+
 
     # # Set this in SOME subclasses
     # metadata = {'render.modes': []}
@@ -71,9 +72,6 @@ class LogicSim(gym.Env):
         self._scatter = None
         matplotlib.interactive(True)
 
-
-        print(LogicSim.observation_space)
-
     def reset(self):
         self._step = 0
         for e in chain(self._entities.values(), self._enemies):
@@ -84,9 +82,6 @@ class LogicSim(gym.Env):
         return "o" if isinstance(e, Ugv) else "^" if isinstance(e, SuicideDrone) else "*"
 
     def render(self, mode='human'):
-        # logging.error('Env cannot be rendered')
-        # assert False, 'Env cannot be rendered'
-
         positions = [(e.pos.x, e.pos.y, e.pos.z, 'r' if isinstance(e, Enemy) else 'm' if isinstance(e, Ugv) else 'g' if isinstance(e, SuicideDrone) else 'b', self._marker_from_entity(e)) for e in
                      chain(self._entities.values(), self._enemies)]
         res = list(zip(*positions))
@@ -102,6 +97,8 @@ class LogicSim(gym.Env):
         self._ax.set_xlim(-100.0, 200.0)
         self._ax.set_ylim(-400.0, 100.0)
         self._ax.set_zlim(-1.0, 30.0)
+
+        self._ax.legend()
 
         plt.draw()
         plt.pause(0.1)

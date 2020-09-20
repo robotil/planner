@@ -7,10 +7,10 @@ import logging
 
 class Ugv(Entity):
 
-    MAX_ACC_MPS2 = 2.1
-    MAX_DECC_MPS2 = 12.1
+    MAX_ACC_MPS2 = 2.1 * Entity.STEP_TIME * (Entity.STEP_TIME ** 2.0)
+    MAX_DECC_MPS2 = 12.1 * Entity.STEP_TIME * (Entity.STEP_TIME ** 2.0)
     MAX_YAW_RATE_DEG_SEC = 90.0
-    MAX_SPEED_MPS = 5.5556  # 20.0 Kmh
+    MAX_SPEED_MPS = 5.5556 * Entity.STEP_TIME # 20.0 Kmh
     MAX_RANGE_OF_VIEW = 10
     FIELD_OF_VIEW = 0.1745  # radians.   approx. 10 deg
 
@@ -39,15 +39,16 @@ class Ugv(Entity):
         self._looking_at = copy.copy(pos)
 
     def go_to(self, path_id, target_wp):
-        logging.info('Ugv go_to path_id{} ({},{},{})'.format(path_id, target_wp.x, target_wp.y, target_wp.z))
+        logging.debug('Ugv go_to path_id{} ({},{},{})'.format(path_id, target_wp.x, target_wp.y, target_wp.z))
+
         if self._reached_target(target_wp):
-            logging.info('Ugv go_to command satisfied')
+            logging.debug('Ugv go_to command satisfied')
             # go_to command satisfied
             self._hover_in_place()
         else:
             # adjust path
             if path_id != self._current_path:
-                logging.info('Ugv go_to change path from {} to {}'.format(self._current_path, path_id))
+                logging.debug('Ugv go_to change path from {} to {}'.format(self._current_path, path_id))
                 self._current_path = path_id
                 self._current_path_wp_index = 0
             assert path_id in Ugv.paths.keys()
@@ -95,12 +96,14 @@ class Ugv(Entity):
         logging.info('Ugv Attack on {} {} {}'.format(pos.x, pos.y, pos.z))
         # TODO logic for uncertainty and CTE
         for e in enemies_in_danger:
-            e.health = 0.0
+            e.health *= 0.5
+            e.health = 0.0 if e.health <= 0.1 else e.health
+            logging.info('enemy {} health {}'.format(e.id, e.health))
         self.health -= 0.05
 
     def _reached_target(self, pos=None) -> bool:
         p = pos if (not (pos is None)) and isinstance(pos, Pos) else self._target_pos
-        return self._pos.distance_to(p) <= self._speed / 2.0
+        return self._pos.distance_to(p) <= Ugv.MAX_SPEED_MPS * 2.0
 
     def _change_target(self, target_wp: Pos):
         logging.debug("start pos {} velocity {} target_wp {}".format(self.pos, self.velocity, target_wp))

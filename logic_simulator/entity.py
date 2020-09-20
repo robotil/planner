@@ -4,6 +4,9 @@ import copy
 
 class Entity:
 
+    STEP_TIME = 0.2
+
+
     def __init__(self, id, pos: Pos):
         self._id = id
         self._pos = pos

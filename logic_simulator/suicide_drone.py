@@ -11,7 +11,7 @@ class SuicideDrone(Drone):
 
     def attack(self, pos, enemies_in_danger):
         logging.info("SuicideDrone Attack on {} {} {}".format(pos.X, pos.Y, pos.Z))
-        if pos.distance_to(self.pos) < SuicideDrone.EPSILON:
+        if pos.distance_to(self.pos) > SuicideDrone.EPSILON:
             self.go_to(pos)
         else:
             for e in enemies_in_danger:
