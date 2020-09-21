@@ -98,7 +98,7 @@ class LogicSim(gym.Env):
         self._ax.set_ylim(-400.0, 100.0)
         self._ax.set_zlim(-1.0, 30.0)
 
-        self._ax.legend()
+        # self._ax.legend()
 
         plt.draw()
         plt.pause(0.1)
