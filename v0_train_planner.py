@@ -63,6 +63,47 @@ EPS = 1e-6  # Avoid NaN (prevents division by zero or log of zero)
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20
 
+lg_ugv.paths = {
+        'Path1': [Pos(-47.0, -359.0, 1.00792499),
+                  Pos(-49.0, -341.0, 1.04790355),
+                  Pos(-29.0, -295.0, 0.40430533),
+                  Pos(-17.0, -250.0, 1.06432373),
+                  Pos(14.0, -180.0, 0.472875877),
+                  Pos(22.0, -137.0, 1.80694756),
+                  Pos(21.0, -98.0, 0.002950645),
+                  Pos(19.0, -78.0, - 0.194334967),
+                  Pos(17.0, -72.0, - 0.000997688),
+                  Pos(19.0, -71.0, - 0.194334959)
+                  ],
+        'Path2': [Pos(19.0, -72.0, - 0.194336753),
+                  Pos(26.0, -62.0, - 0.001001044),
+                  Pos(26.0, -54.0, - 0.001001044),
+                  Pos(27.0, -54.0, - 0.001000144)
+                  ]
+    }
+
+UGV_START_POS = Pos(-47.0, -359.0, 1.00792499)
+SENSOR_DRONE_START_POS = Pos(-47.0, -359.0, 30.0)
+SUICIDE_DRONE_START_POS = Pos(-47.0, -359.0, 15)
+NORTH_WEST_SUICIDE = Pos(49.0, -13.0, 19.8076557)
+NORTH_EAST_SUICIDE = Pos(81.0, -20.0, 20.5166231)
+NORTH_EAST_OBSERVER = Pos(106.0, -5.0, 23.7457948)
+# SOUTH_WEST = Pos(400.0, 200.0, 30.0)
+SOUTH_EAST = Pos(120.0, -100.0, 25.4169388)
+WEST_WINDOW_POS = Pos(43.0, -56.0, 3.95291735)
+NORTH_WINDOW_POS = Pos(47.0, -47.0, 3.4749414)
+SOUTH_WINDOW_POS = Pos(48.0, -58.0, 3.47494173)
+EAST_WINDOW_POS = Pos(51.0, -56.0, 10.0)
+PATH_ID = 'Path1'
+SOUTH_WEST_UGV_POS = lg_ugv.paths[PATH_ID][-1]
+GATE_POS = lg_ugv.paths['Path2'][-1]
+TIME_TO_STIMULATE_1 = LogicSim.MAX_STEPS / 4
+TIME_TO_STIMULATE_2 = LogicSim.MAX_STEPS / 2
+SUICIDE_WPS = [NORTH_WEST_SUICIDE, NORTH_EAST_SUICIDE]
+OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
+ENEMY_POS = Pos(48.0, -58.0, 3.47494173)
+
+
 
 ##############
 ##
@@ -78,11 +119,18 @@ def dist3d(one, two):
     return math.sqrt((one.x - two.x) ** 2.0 + (one.y - two.y) ** 2.0 + (one.z - two.z) ** 2.0)
 
 
+def add_action_logic(actions, entity, action_name, params):
+    if not action_name in actions.keys():
+        actions[action_name]=[]
+    actions[action_name].append({entity.id:params})
+
 def add_action(action_list, action_type, entity_id, parameter):
     # Parameter is a tupple
-    todo = {entity_id: parameter}
-    action_list[action_type].append(todo)
-
+    if isinstance(action_type, str):
+        todo = {entity_id: parameter}
+        action_list[action_type].append(todo)
+    else:
+        add_action_logic(action_list, action_type, entity_id, parameter)
 
 def compute_reward(rel_diff_step, num_of_dead, num_of_lost_devices, scenario_completed):
     # For the first scenario, the reward depends only on"
@@ -127,14 +175,58 @@ def populate():
     os.system("scripts/populate-scen-0.bash ")
 
 
+
+def line_of_sight(ent, pos):
+    return ent.is_line_of_sight_to(pos)
+
+def line_of_sight_to_enemy(entities):
+    return [ent for ent in entities if line_of_sight(ent, ENEMY_POS)]
+
+
+def is_entity_positioned(entity, pos):
+    MINMUM_DISTANCE = 6.0
+    return entity.pos.distance_to(pos) < MINMUM_DISTANCE
+
+
+def order_drones_movement(actions, suicide_drone, sensor_drone, plan_index):
+
+    assert len(SUICIDE_WPS) == len(OBSERVER_WPS)
+
+    change_target = is_entity_positioned(suicide_drone, SUICIDE_WPS[plan_index]) and is_entity_positioned(sensor_drone,OBSERVER_WPS[plan_index])
+
+    plan_index = plan_index if not change_target else (plan_index + 1) % len(OBSERVER_WPS)
+
+    #   suicide.goto(SUICIDE_WPS[plan_index])
+    add_action(actions, suicide_drone, 'MOVE_TO', (SUICIDE_WPS[plan_index],))
+    #   observer.goto(OBSERVER_WPS[plan_index])
+    add_action(actions, sensor_drone, 'MOVE_TO', (OBSERVER_WPS[plan_index],))
+
+    return plan_index
+
+
+def order_drones_look_at(actions, suicide_drone, sensor_drone):
+
+    suicide_look_at = WEST_WINDOW_POS if suicide_drone.pos.y < WEST_WINDOW_POS.y else NORTH_WINDOW_POS
+
+    sensor_drone_look_at = EAST_WINDOW_POS if sensor_drone.pos.x > SOUTH_WINDOW_POS.x else SOUTH_WINDOW_POS
+
+    sensor_drone_look_at = NORTH_WINDOW_POS if sensor_drone_look_at.equals(WEST_WINDOW_POS) else sensor_drone_look_at
+
+    suicide_look_at = EAST_WINDOW_POS if sensor_drone_look_at.equals(SOUTH_WINDOW_POS) else suicide_look_at
+
+    add_action(actions, sensor_drone, "LOOK_AT", (sensor_drone_look_at,))
+
+    add_action(actions, suicide_drone, "LOOK_AT", (sensor_drone_look_at,))
+
 def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_scanner1, at_scanner2, at_scanner3,
                     at_suicide1, at_suicide2, at_suicide3, at_window1, env, min_dist, start_time_x, start_time_y,
                     start_time_zz, timer_x_period, timer_y_period, timer_zz_period):
     # Wait until there is some enemy
+    is_logical = True
     x = threading.Thread(target=populate, args=())
-    print("Before running thread")
+    logging.info("Before running thread")
     x.start()
-
+    logging.debug('start simple_building_ambush ...')
     obs = env.reset()
 
     while not bool(obs['enemies']):
@@ -145,39 +237,50 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
     drn_entity = env.get_entity('SensorDrone')
     while not bool(ugv_entity):
         ugv_entity = env.get_entity('UGV')
-    log_ugv = lg_ugv('UGV', Pos(ugv_entity.gpoint.x, ugv_entity.gpoint.y, ugv_entity.gpoint.z))
+    log_ugv = lg_ugv('UGV', UGV_START_POS if is_logical else Pos(ugv_entity.gpoint.x, ugv_entity.gpoint.y, ugv_entity.gpoint.z))
     ugv_state = UGVLocalMachine()
     while not bool(scd_entity):
         scd_entity = env.get_entity('Suicide')
-    log_scd = lg_scd_drone('Suicide', Pos(scd_entity.gpoint.x, scd_entity.gpoint.y, scd_entity.gpoint.z))
+    log_scd = lg_scd_drone('Suicide',  SUICIDE_DRONE_START_POS if is_logical else Pos(scd_entity.gpoint.x, scd_entity.gpoint.y, scd_entity.gpoint.z))
     scd_state = SuicideLocalMachine()
     while not bool(drn_entity):
         drn_entity = env.get_entity('SensorDrone')
-    log_drn = lg_scn_drone('SensorDrone', Pos(drn_entity.gpoint.x, drn_entity.gpoint.y, drn_entity.gpoint.z))
+    log_drn = lg_scn_drone('SensorDrone', SENSOR_DRONE_START_POS if is_logical else Pos(drn_entity.gpoint.x, drn_entity.gpoint.y, drn_entity.gpoint.z))
     drn_state = DroneLocalMachine()
+
+
+    # enemy_positions = [ENEMY_POS]
+    # enemies = [Enemy("Enemy" + str(i), p, 1) for i, p in enumerate(enemy_positions)]
+    # ls = LogicSim({suicide_drone.id: suicide_drone, sensor_drone.id: sensor_drone, ugv.id: ugv}, enemies)
+    # ls.reset()
+
+
+
     # Start to move the entities
     add_action(action_list, 'TAKE_PATH', 'UGV', ('Path1', at_point1))
     add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1,))
     add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1,))
     add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2,))
     # Set state to each entity
-    ugv_state.phase1()
-    drn_state.phase1()
-    scd_state.phase_i_2()
-    done = False
+    # ugv_state.phase1()
+    # drn_state.phase1()
+    # scd_state.phase_i_2()
+    # done = False
     reason = ""
     log_entities = {log_drn.id: log_drn, log_scd.id: log_scd, log_ugv.id: log_ugv}
     log_enemies = [sim_enemy(e) for e in env.enemies]
     logic_sim = LogicSim(log_entities, log_enemies)
     diff_step = logic_sim.MAX_STEPS
-    step = 0
-    num_of_dead = 0
+    # step = 0
     number_of_enemies = len(log_enemies)
-    num_of_lost_devices = 0
-    scenario_completed = False
-    attacking_los = False
+
+    # attacking_los = False
     #    log_obs = logic_sim._get_obs()
     start_time_x = time.time()  # timer for ugv along path1
+
+    step, start_ambush_step, stimulation_1_step, stimulation_2_step, plan_index, num_of_dead, num_of_lost_devices = 0, 0, 0, 0, 0, 0, 0
+    done, all_entities_positioned, scenario_completed = False, False, False
+
     while not done:
         logic_sim.render()
         obs, reward, done, _ = logic_sim.step(action_list)
@@ -196,178 +299,252 @@ def run_logical_sim(action_list, at_house1, at_house2, at_point1, at_point2, at_
             done = True
             break
 
-        # Reset Actions
+    # Reset Actions
         action_list = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
 
-        a, f, los = obs
-        # health = f[0][1]
-        # if health == 0.0:
-        #     done = True
-        list_actual_enemies = f
-        for i in range(len(list_actual_enemies)):
-            if list_actual_enemies[i][1] == 0.0:
-                num_of_dead = num_of_dead + 1
-                reason = "Enemy is dead"
-                done = True
-                break
+        # a, f, los = obs
+        # # health = f[0][1]
+        # # if health == 0.0:
+        # #     done = True
+        # list_actual_enemies = f
+        # for i in range(len(list_actual_enemies)):
+        #     if list_actual_enemies[i][1] == 0.0:
+        #         num_of_dead = num_of_dead + 1
+        #         reason = "Enemy is dead"
+        #         done = True
+        #         break
 
         # Check if there is an enemy in line of sight
         # los is a dictionary of enemies and each enemy has a list of entities in los
         # For ex: { Sniper_0: [ent1, ent2], Sniper_1: [ent2, ent3]}
-        if bool(los):
-            nm1 = los
-            for key in nm1:
-                list_of_entities = nm1[key]
-                our_enemy = [i for i in log_enemies if i.id == key][0]
-                # Choose to attack the first enemy in the list
-                num_of_entities = len(list_of_entities)
-                if num_of_entities >= 1:
-                    # Choose first to shoot if possible
-                    found_ugv = False
-                    found_suicide = False
-                    found_scan = False
-                    for i in range(num_of_entities):
-                        ent0 = list_of_entities[i]
-                        if ent0.id == "UGV":
-                            # We can shoot
-                            add_action(action_list, 'ATTACK', ent0.id, (our_enemy.pos,))
-                            found_ugv = True
-                            attacking_los = True
-                            break  # Get out of the loop
-                        elif ent0.id == "Suicide":
-                            # We can commit suicide
-                            found_suicide = True
-                            suicide_entity = ent0
-                        else:
-                            found_scan = True
-                    if not found_ugv:
-                        # We cannot shoot
-                        if found_suicide:
-                            add_action(action_list, 'ATTACK', suicide_entity.id, (our_enemy.pos,))
-                            attacking_los = True
-                            break  # Get out of the loop
-                        elif found_scan:
-                            # Tell suicide to get close to the enemy so that it will be able
-                            # to attack him eventually
-                            last_goal_for_suicide = our_enemy.pos
-                            add_action(action_list, 'MOVE_TO', 'Suicide', (our_enemy.pos,))
-                            if scd_state.is_suicide2:
-                                scd_state.phase2_ZZ()
-                            elif scd_state.is_suicide3:
-                                scd_state.phase3_ZZ()
-                            else:
-                                print("Strange state for Suicide")
-                            start_time_zz = time.time()
+
+
+
+        #if bool(los):
+        #    nm1 = los
+        #    for key in nm1:
+        #        list_of_entities = nm1[key]
+        #        our_enemy = [i for i in log_enemies if i.id == key][0]
+        #        # Choose to attack the first enemy in the list
+        #        num_of_entities = len(list_of_entities)
+        #        if num_of_entities >= 1:
+        #            # Choose first to shoot if possible
+        #            found_ugv = False
+        #            found_suicide = False
+        #            found_scan = False
+        #            for i in range(num_of_entities):
+        #                ent0 = list_of_entities[i]
+        #                if ent0.id == "UGV":
+        #                    # We can shoot
+        #                    add_action(action_list, 'ATTACK', ent0.id, (our_enemy.pos,))
+        #                    found_ugv = True
+        #                    attacking_los = True
+        #                    break  # Get out of the loop
+        #                elif ent0.id == "Suicide":
+        #                    # We can commit suicide
+        #                    found_suicide = True
+        #                    suicide_entity = ent0
+        #                else:
+        #                    found_scan = True
+        #            if not found_ugv:
+        #                # We cannot shoot
+        #                if found_suicide:
+        #                    add_action(action_list, 'ATTACK', suicide_entity.id, (our_enemy.pos,))
+        #                    attacking_los = True
+        #                    break  # Get out of the loop
+        #                elif found_scan:
+        #                    # Tell suicide to get close to the enemy so that it will be able
+        #                    # to attack him eventually
+        #                    last_goal_for_suicide = our_enemy.pos
+        #                    add_action(action_list, 'MOVE_TO', 'Suicide', (our_enemy.pos,))
+        #                    if scd_state.is_suicide2:
+        #                        scd_state.phase2_ZZ()
+        #                    elif scd_state.is_suicide3:
+        #                        scd_state.phase3_ZZ()
+        #                    else:
+        #                        print("Strange state for Suicide")
+        #                    start_time_zz = time.time()
+
+
+        ###
+        entities_with_los_to_enemy = line_of_sight_to_enemy([log_scd, log_drn, log_ugv])
+        if len(entities_with_los_to_enemy) > 0:
+            # ENEMY FOUND !!!
+            if log_ugv in entities_with_los_to_enemy:
+                #ugv.attack(ENEMY_POS)
+                add_action(action_list, log_ugv, 'ATTACK', (ENEMY_POS,))
+            elif log_scd in entities_with_los_to_enemy:
+                # suicide.attack(ENEMY_POS)
+                add_action(action_list, log_scd, 'ATTACK', (ENEMY_POS,))
+            else:
+                # suicide.goto(ENEMY_POS)
+                add_action(action_list, log_scd, 'MOVE_TO', (ENEMY_POS,))
+        elif not all_entities_positioned:
+            # MOVE TO INDICATION TARGET
+            all_entities_positioned = is_entity_positioned(log_scd, NORTH_WEST_SUICIDE) and\
+                                      is_entity_positioned(log_drn, NORTH_EAST_OBSERVER) and\
+                                      is_entity_positioned(log_ugv, SOUTH_WEST_UGV_POS)
+            #suicide.goto(NORTH_WEST)
+            add_action(action_list, log_scd, 'MOVE_TO', (NORTH_WEST_SUICIDE,))
+            # observer.goto(NORTH_EAST)
+            add_action(action_list, log_drn, 'MOVE_TO', (NORTH_EAST_OBSERVER,))
+            # ugv.goto(PATH_ID, SOUTH_WEST)
+            add_action(action_list, log_ugv, 'TAKE_PATH', (PATH_ID, SOUTH_WEST_UGV_POS))
+        else:
+            if start_ambush_step == 0:
+                start_ambush_step = step
+                logging.info('step {} all entities positioned... start ambush phase'.format(step))
+            # AMBUSH ON INDICATION TARGET
+            if step > start_ambush_step + TIME_TO_STIMULATE_1 and step < start_ambush_step + TIME_TO_STIMULATE_2:
+                # STIMULATION 1
+                if stimulation_1_step == 0:
+                    stimulation_1_step = step
+                    logging.info('step {} stimulation 1 phase'.format(step))
+                # ugv.attack(WEST_WINDOW_POS)
+                add_action(action_list, log_ugv, 'ATTACK', (WEST_WINDOW_POS,))
+            elif step > start_ambush_step + TIME_TO_STIMULATE_2:
+                # STIMULATION 2
+                # ugv.goto(PATH_ID, GATE_POS)
+                if stimulation_2_step == 0:
+                    stimulation_2_step = step
+                    logging.info('step {} stimulation 2 phase'.format(step))
+                if is_entity_positioned(log_ugv, GATE_POS):
+                    # ugv.attack(WEST_WINDOW_POS)
+                    add_action(action_list, log_ugv, 'ATTACK', (WEST_WINDOW_POS,))
+                else:
+                    add_action(action_list, log_ugv, 'TAKE_PATH', ('Path2', GATE_POS))
+            plan_index = order_drones_movement(action_list, log_scd, log_drn, plan_index)
+            order_drones_look_at(action_list, log_scd, log_drn)
+        ###
+
+
+
 
         # Deal with scenario
         # Take care of UGV
-        if not attacking_los:
-            if ugv_state.is_point1:  # Should be in wait1
-                add_action(action_list, 'TAKE_PATH', 'UGV', ('Path1', at_point1))
-                ugv_state.phase2()
-                start_time_x = time.time()
-            elif ugv_state.is_wait1:
-                # Check time
-                right_now = time.time()
-                diff = right_now - start_time_x
-                if diff >= timer_x_period:
-                    add_action(action_list, 'ATTACK', 'UGV', (at_window1,))
-                    ugv_state.phase3()
-                    start_time_y = time.time()
-                else:
-                    add_action(action_list, 'TAKE_PATH', 'UGV', ('Path1', at_point1))
-            elif ugv_state.is_wait2:
-                # Check time
-                right_now = time.time()
-                diff = right_now - start_time_y
-                if diff >= timer_y_period:
-                    add_action(action_list, 'TAKE_PATH', 'UGV', ('Path2', at_point2))
-                    ugv_state.phase4()
-            elif ugv_state.is_point2:
-                if dist3d(log_ugv.pos, at_point2) <= min_dist:  # ZZZ needs Point2
-                    # Reach Point2
-                    # What to do?
-                    # done = True
-                    print("Don't know what to do")
-                else:
-                    add_action(action_list, 'TAKE_PATH', 'UGV', ('Path2', at_point2))
+        # if not attacking_los:
+        #     if ugv_state.is_point1:  # Should be in wait1
+        #         add_action(action_list, 'TAKE_PATH', 'UGV', ('Path1', at_point1))
+        #         ugv_state.phase2()
+        #         start_time_x = time.time()
+        #     elif ugv_state.is_wait1:
+        #         # Check time
+        #         right_now = time.time()
+        #         diff = right_now - start_time_x
+        #         if diff >= timer_x_period:
+        #             add_action(action_list, 'ATTACK', 'UGV', (at_window1,))
+        #             ugv_state.phase3()
+        #             start_time_y = time.time()
+        #         else:
+        #             add_action(action_list, 'TAKE_PATH', 'UGV', ('Path1', at_point1))
+        #     elif ugv_state.is_wait2:
+        #         # Check time
+        #         right_now = time.time()
+        #         diff = right_now - start_time_y
+        #         if diff >= timer_y_period:
+        #             add_action(action_list, 'TAKE_PATH', 'UGV', ('Path2', at_point2))
+        #             ugv_state.phase4()
+        #     elif ugv_state.is_point2:
+        #         if dist3d(log_ugv.pos, at_point2) <= min_dist:  # ZZZ needs Point2
+        #             # Reach Point2
+        #             # What to do?
+        #             # done = True
+        #             print("Don't know what to do")
+        #         else:
+        #             add_action(action_list, 'TAKE_PATH', 'UGV', ('Path2', at_point2))
 
         # Take care of suicide
-        if not attacking_los:
-            if scd_state.is_suicide2:
-                if dist3d(log_scd.pos, at_suicide2) <= min_dist:
-                    if dist3d(log_scd.pos, at_scanner1) <= 3 * min_dist:  # Check position of scan
-                        add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide3,))
-                        scd_state.phase3()
-                    else:
-                        # Just stay in position and wait for scan drone
-                        print(
-                            "Step:" + step.__str__() + " Suicide in state:" + scd_state.current_state.value + " is waiting for scan dist=" + ascii(dist3d(log_scd.pos, at_scanner1)))
-                else:
-                    add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2,))
-            elif scd_state.is_suicide3:
-                if dist3d(log_scd.pos, at_suicide3) <= min_dist:
-                    if dist3d(log_scd.pos, at_scanner2) <= 3 * min_dist:
-                        add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2,))
-                        scd_state.phase4()
-                    else:
-                        # Just stay in position and wait for scan drone
-                        print(
-                            "Step:" + step + " Suicide in state:" + scd_state.current_state.value + " is waiting for scan dist=" + ascii(dist3d(log_scd.pos, at_scanner2)))
-                else:
-                    add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide3,))
-            elif scd_state.is_suicideZZ:  ## Was asked to get close to enemy
-                right_now = time.time()
-                diff = right_now - start_time_zz
-                ### After some timeout (timer_zz_period), return to usual itinerary
-                if diff >= timer_zz_period:
-                    add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide3,))
-                    scd_state.phaseZZ_3()
-                else:
-                    if last_goal_for_suicide:
-                        add_action(action_list, 'MOVE_TO', 'Suicide', (last_goal_for_suicide,))
-                    else:
-                        print(
-                            "VERY WRONG: Step:" + step.__str__() + " Suicide in state:" + scd_state.current_state.value + " without last_goal_for_suicide")
-            elif scd_state.is_suicide1:  ## Shouldn't happen
-                if dist3d(log_scd.pos, at_suicide1) <= min_dist:
-                    add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2,))
-                    scd_state.phase2()
+        # logging.info('min_dist {}'.format(min_dist))
+        # if not attacking_los:
+        #     if scd_state.is_suicide2:
+        #         logging.info('scd_state.is_suicide2')
+        #         logging.info('before dist3d(log_scd.pos, at_suicide2) = {}'.format(dist3d(log_scd.pos, at_suicide2)))
+        #         if dist3d(log_scd.pos, at_suicide2) <= min_dist:
+        #             if dist3d(log_scd.pos, at_scanner1) <= 3 * min_dist:  # Check position of scan
+        #                 add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide3,))
+        #                 scd_state.phase3()
+        #             else:
+        #                 # Just stay in position and wait for scan drone
+        #                 print(
+        #                     "Step:" + step.__str__() + " Suicide in state:" + scd_state.current_state.value + " is waiting for scan dist=" + ascii(dist3d(log_scd.pos, at_scanner1)))
+        #         else:
+        #             add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2,))
+        #     elif scd_state.is_suicide3:
+        #         if dist3d(log_scd.pos, at_suicide3) <= min_dist:
+        #             if dist3d(log_scd.pos, at_scanner2) <= 3 * min_dist:
+        #                 add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2,))
+        #                 scd_state.phase4()
+        #             else:
+        #                 # Just stay in position and wait for scan drone
+        #                 print(
+        #                     "Step:" + step + " Suicide in state:" + scd_state.current_state.value + " is waiting for scan dist=" + ascii(dist3d(log_scd.pos, at_scanner2)))
+        #         else:
+        #             add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide3,))
+        #     elif scd_state.is_suicideZZ:  ## Was asked to get close to enemy
+        #         right_now = time.time()
+        #         diff = right_now - start_time_zz
+        #         ### After some timeout (timer_zz_period), return to usual itinerary
+        #         if diff >= timer_zz_period:
+        #             add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide3,))
+        #             scd_state.phaseZZ_3()
+        #         else:
+        #             if last_goal_for_suicide:
+        #                 add_action(action_list, 'MOVE_TO', 'Suicide', (last_goal_for_suicide,))
+        #             else:
+        #                 print(
+        #                     'VERY WRONG: Step:' + step.__str__() + " Suicide in state:" + scd_state.current_state.value + " without last_goal_for_suicide")
+        #     elif scd_state.is_suicide1:  ## Shouldn't happen
+        #         if dist3d(log_scd.pos, at_suicide1) <= min_dist:
+        #             add_action(action_list, 'MOVE_TO', 'Suicide', (at_suicide2,))
+        #             scd_state.phase2()
 
         # Take care of drone
-        if not attacking_los:
-            if drn_state.is_scanner1:
-                if dist3d(log_drn.pos, at_scanner1) <= min_dist:
-                    if dist3d(log_scd.pos, at_suicide2) <= 3 * min_dist:
-                        add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner2))
-                        add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house2))
-                        drn_state.phase2()
-                    else:
-                        print(
-                            "Step:" + step.__str__() + " Scanner Drone state:" + drn_state.current_state.value + " is waiting for suicide dist=", ascii(dist3d(log_scd.pos, at_suicide2)))
-                else:
-                    add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1,))
-                    add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1,))
-            elif drn_state.is_scanner2:
-                if dist3d(log_drn.pos, at_scanner2) <= min_dist:
-                    if dist3d(log_scd.pos, at_suicide3) <= 3 * min_dist:
-                        add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1))
-                        add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1))
-                        drn_state.phase3()
-                    else:
-                        print(
-                            "Step:" + step.__str__() + " Scanner Drone state:" + drn_state.current_state.value + " is waiting for suicide dist=", ascii(dist3d(log_scd.pos, at_suicide3)))
-                else:
-                    add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner2))
-                    add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house2))
-            elif drn_state.is_scanner3:  ## Shouldn't happen
-                if dist3d(log_drn.pos, at_scanner3) <= min_dist:
-                    add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1))
-                    add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1))
-                    drn_state.phase5()
+
+
+        # if not attacking_los:
+        #     if drn_state.is_scanner1:
+        #         logging.info('drn_state.is_scanner1')
+        #         logging.info('before dist3d(log_drn.pos, at_scanner1) = {}'.format(dist3d(log_drn.pos, at_scanner1)))
+        #         if dist3d(log_drn.pos, at_scanner1) <= min_dist:
+        #             logging.info('dist3d(log_drn.pos, at_scanner1) = {}'.format(dist3d(log_drn.pos, at_scanner1)))
+        #             if dist3d(log_scd.pos, at_suicide2) <= 3 * min_dist:
+        #                 logging.info('dist3d(log_scd.pos, at_suicide2) = {}'.format(dist3d(log_scd.pos, at_suicide2)))
+        #                 add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner2,))
+        #                 add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house2,))
+        #                 drn_state.phase2()
+        #             else:
+        #                 print(
+        #                     "Step:" + step.__str__() + " Scanner Drone state:" + drn_state.current_state.value + " is waiting for suicide dist=", ascii(dist3d(log_scd.pos, at_suicide2)))
+        #         else:
+        #             logging.info('sensor drone move to scanner1 lok at house1')
+        #             add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1,))
+        #             add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1,))
+        #     elif drn_state.is_scanner2:
+        #         logging.info('drn_state.is_scanner2')
+        #         if dist3d(log_drn.pos, at_scanner2) <= min_dist:
+        #             logging.info('dist3d(log_drn.pos, at_scanner2) {}'.format(dist3d(log_drn.pos, at_scanner2)))
+        #             if dist3d(log_scd.pos, at_suicide3) <= 3 * min_dist:
+        #                 logging.info('dist3d(log_scd.pos, at_suicide3) {}'.format(dist3d(log_scd.pos, at_suicide3)))
+        #                 add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1,))
+        #                 add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1,))
+        #                 drn_state.phase3()
+        #             else:
+        #                 print(
+        #                     "Step:" + step.__str__() + " Scanner Drone state:" + drn_state.current_state.value + " is waiting for suicide dist=", ascii(dist3d(log_scd.pos, at_suicide3)))
+        #         else:
+        #             logging.info('sensor drone move to scanner2 look at house2')
+        #             add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner2,))
+        #             add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house2,))
+        #     elif drn_state.is_scanner3:  ## Shouldn't happen
+        #         logging.info('Shouldnt happen')
+        #         if dist3d(log_drn.pos, at_scanner3) <= min_dist:
+        #             add_action(action_list, 'MOVE_TO', 'SensorDrone', (at_scanner1,))
+        #             add_action(action_list, 'LOOK_AT', 'SensorDrone', (at_house1,))
+        #             drn_state.phase5()
 
         ### done is True
     ### Compute reward
+    # num_of_dead = number_of_enemies - len([e for e in log_enemies if e.health>0.0])
     diff_step = logic_sim.MAX_STEPS - step + 1
     diff_step = diff_step / logic_sim.MAX_STEPS
     this_reward = compute_reward(diff_step, num_of_dead, num_of_lost_devices, scenario_completed)
@@ -600,24 +777,24 @@ def play(save_dir, env):
     at_point2 = Point(x=-0.00048394, y=0.000241653, z=-0.001000144)
     at_window1 = Point(x=-0.000501812, y=0.000386798, z=3.95291735)
 
-    lg_ugv.paths = {
-        'Path1': [Pos(-47.0, -359.0, 1.00792499),
-                  Pos(-49.0, -341.0, 1.04790355),
-                  Pos(-29.0, -295.0, 0.40430533),
-                  Pos(-17.0, -250.0, 1.06432373),
-                  Pos(14.0, -180.0, 0.472875877),
-                  Pos(22.0, -137.0, 1.80694756),
-                  Pos(21.0, -98.0, 0.002950645),
-                  Pos(19.0, -78.0, - 0.194334967),
-                  Pos(17.0, -72.0, - 0.000997688),
-                  Pos(19.0, -71.0, - 0.194334959)
-                  ],
-        'Path2': [Pos(19.0, -72.0, - 0.194336753),
-                  Pos(26.0, -62.0, - 0.001001044),
-                  Pos(26.0, -54.0, - 0.001001044),
-                  Pos(27.0, -54.0, - 0.001000144)
-                  ]
-    }
+    # lg_ugv.paths = {
+    #     'Path1': [Pos(-47.0, -359.0, 1.00792499),
+    #               Pos(-49.0, -341.0, 1.04790355),
+    #               Pos(-29.0, -295.0, 0.40430533),
+    #               Pos(-17.0, -250.0, 1.06432373),
+    #               Pos(14.0, -180.0, 0.472875877),
+    #               Pos(22.0, -137.0, 1.80694756),
+    #               Pos(21.0, -98.0, 0.002950645),
+    #               Pos(19.0, -78.0, - 0.194334967),
+    #               Pos(17.0, -72.0, - 0.000997688),
+    #               Pos(19.0, -71.0, - 0.194334959)
+    #               ],
+    #     'Path2': [Pos(19.0, -72.0, - 0.194336753),
+    #               Pos(26.0, -62.0, - 0.001001044),
+    #               Pos(26.0, -54.0, - 0.001001044),
+    #               Pos(27.0, -54.0, - 0.001000144)
+    #               ]
+    # }
 
     lg_scanner1 = Pos(120.0, -59.0, 25.4169388)
     lg_scanner2 = Pos(106.0, -5.0, 23.7457948)
@@ -642,7 +819,7 @@ def play(save_dir, env):
     start_time_x = 0.0
     start_time_y = 0.0
     start_time_zz = 0.0
-    min_dist = 1
+    min_dist = 1.9
     end_of_session = False
     session_num = 1
     root = configure_logger()

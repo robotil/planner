@@ -56,10 +56,7 @@ SUICIDE_WPS = [NORTH_WEST_SUICIDE, NORTH_EAST_SUICIDE]
 OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
 ENEMY_POS = Pos(48.0, -58.0, 3.47494173)
 
-def add_action(actions, entity, action_name, params):
-    if not action_name in actions.keys():
-        actions[action_name]=[]
-    actions[action_name].append({entity.id:params})   
+
 
 def is_entity_positioned(entity, pos):
     MINMUM_DISTANCE = 6.0
@@ -115,7 +112,7 @@ def simple_building_ambush():
     while step < LogicSim.MAX_STEPS and not done:
         step += 1
         entities_with_los_to_enemy = line_of_sight_to_enemy([suicide_drone, sensor_drone, ugv])
-        
+
         actions = {}
 
         if len(entities_with_los_to_enemy) > 0:
