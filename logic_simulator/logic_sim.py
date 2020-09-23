@@ -16,6 +16,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import matplotlib
 
+
 class LogicSim(gym.Env):
     NUM_ACTIONS = 4
     MAX_STEPS = 1000
@@ -29,13 +30,7 @@ class LogicSim(gym.Env):
         'TAKE_PATH': {Ugv: Ugv.go_to}
     }
 
-
-    # # Set this in SOME subclasses
-    # metadata = {'render.modes': []}
-    # reward_range = (-np.inf, np.inf)
-    # spec = None
-
-    # # Set these in ALL subclasses
+    FIG = plt.figure()
 
     observation_space = gym.spaces.Tuple([
         gym.spaces.Tuple([  # Entities obs
@@ -66,9 +61,8 @@ class LogicSim(gym.Env):
         self._entities = entities
         self._enemies = enemies
         self._step = 0
-        self._fig = plt.figure()
+        self._fig = LogicSim.FIG
         self._ax = self._fig.add_subplot(111, projection='3d')
-
         self._scatter = None
         matplotlib.interactive(True)
 
@@ -82,11 +76,13 @@ class LogicSim(gym.Env):
         return "o" if isinstance(e, Ugv) else "^" if isinstance(e, SuicideDrone) else "*"
 
     def render(self, mode='human'):
-        positions = [(e.pos.x, e.pos.y, e.pos.z, 'r' if isinstance(e, Enemy) else 'm' if isinstance(e, Ugv) else 'g' if isinstance(e, SuicideDrone) else 'b', self._marker_from_entity(e)) for e in
+        positions = [(e.pos.x, e.pos.y, e.pos.z,
+                      'r' if isinstance(e, Enemy) else 'm' if isinstance(e, Ugv) else 'g' if isinstance(e,
+                                                                                                        SuicideDrone) else 'b',
+                      self._marker_from_entity(e)) for e in
                      chain(self._entities.values(), self._enemies)]
         res = list(zip(*positions))
-        if not self._scatter is None:
-            # self._scatter.remove()
+        if self._scatter is not None:
             self._ax.cla()
         self._scatter = self._ax.scatter(res[0], res[1], res[2], c=res[3], marker='o')
 
