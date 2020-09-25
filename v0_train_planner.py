@@ -113,13 +113,13 @@ def dist3d(one, two):
 
 
 def add_action_logic(actions, entity, action_name, params):
-    if not action_name in actions.keys():
+    if action_name not in actions.keys():
         actions[action_name] = []
     actions[action_name].append({entity.id: params})
 
 
 def add_action(action_list, action_type, entity_id, parameter):
-    assert isinstance(parameter,tuple), "Parameter should be a tuple"
+    assert isinstance(parameter, tuple), "Parameter should be a tuple"
     if isinstance(action_type, str):
         todo = {entity_id: parameter}
         action_list[action_type].append(todo)
@@ -136,7 +136,7 @@ def compute_reward(rel_diff_step, num_of_dead, num_of_lost_devices, scenario_com
     # Did we kill the enemy?
     # With which platform?
     # How long did it take
-    reward = 0
+
     total_num_of_enemies = 1
     total_num_of_devices = 3
     if scenario_completed:
@@ -190,7 +190,9 @@ def is_entity_positioned(entity, pos):
 def order_drones_movement(actions, suicide_drone, sensor_drone, plan_index):
     assert len(SUICIDE_WPS) == len(OBSERVER_WPS)
 
-    change_target = is_entity_positioned(suicide_drone, SUICIDE_WPS[plan_index]) and is_entity_positioned(sensor_drone,OBSERVER_WPS[plan_index])
+    change_target = is_entity_positioned(suicide_drone, SUICIDE_WPS[plan_index]) and is_entity_positioned(sensor_drone,
+                                                                                                          OBSERVER_WPS[
+                                                                                                              plan_index])
 
     plan_index = plan_index if not change_target else (plan_index + 1) % len(OBSERVER_WPS)
 
@@ -216,12 +218,9 @@ def order_drones_look_at(actions, suicide_drone, sensor_drone):
     add_action(actions, suicide_drone, "LOOK_AT", (suicide_look_at,))
 
 
-def run_logical_sim(at_house1, at_house2, at_point1, at_point2, at_scanner1, at_scanner2, at_scanner3,
-                    at_suicide1, at_suicide2, at_suicide3, at_window1, env, min_dist, start_time_x, start_time_y,
-                    start_time_zz, timer_x_period, timer_y_period, timer_zz_period):
+def run_logical_sim(env, is_logical):
     # Wait until there is some enemy
     logging.debug('Wait for enemies...')
-    is_logical = True
     x = threading.Thread(target=populate, args=())
     logging.info("Before running thread")
     x.start()
@@ -232,34 +231,17 @@ def run_logical_sim(at_house1, at_house2, at_point1, at_point2, at_scanner1, at_
         continue
 
     logging.debug('enemies found! Start simple_building_ambush')
-    # Since pre-defined scenario, let's get all the entities
-    ugv_entity = env.get_entity('UGV')
-    scd_entity = env.get_entity('Suicide')
-    drn_entity = env.get_entity('SensorDrone')
-    while not bool(ugv_entity):
-        ugv_entity = env.get_entity('UGV')
-    log_ugv = lg_ugv('UGV', UGV_START_POS if is_logical else Pos(ugv_entity.gpoint.x, ugv_entity.gpoint.y,
-                                                                 ugv_entity.gpoint.z))
-    while not bool(scd_entity):
-        scd_entity = env.get_entity('Suicide')
-    log_scd = lg_scd_drone('Suicide',SUICIDE_DRONE_START_POS if is_logical else Pos(scd_entity.gpoint.x, scd_entity.gpoint.y,scd_entity.gpoint.z))
-    while not bool(drn_entity):
-        drn_entity = env.get_entity('SensorDrone')
-    log_drn = lg_scn_drone('SensorDrone',
-                           SENSOR_DRONE_START_POS if is_logical else Pos(drn_entity.gpoint.x, drn_entity.gpoint.y,
-                                                                         drn_entity.gpoint.z))
 
-    reason = ""
-    log_entities = {log_drn.id: log_drn, log_scd.id: log_scd, log_ugv.id: log_ugv}
-    log_enemies = [sim_enemy(e) for e in env.enemies]
-    logic_sim = LogicSim(log_entities, log_enemies)
-    logic_sim.reset()
-    diff_step = logic_sim.MAX_STEPS
-    number_of_enemies = len(log_enemies)
+    # Since pre-defined scenario, let's get all the entities
+    # Returns logic env and entities if is_logical==True
+    # planner_env and planner_env entities if is_logical ==False
+    sim_env, sensor_drone, suicide_drone, ugv = get_env_and_entities(env, is_logical)
+
+    sim_env.reset()
 
     step, start_ambush_step, stimulation_1_step, stimulation_2_step, plan_index, num_of_dead, num_of_lost_devices = 0, 0, 0, 0, 0, 0, 0
     done, all_entities_positioned, scenario_completed = False, False, False
-
+    reason = ""
     while not done:
         step += 1
 
@@ -267,37 +249,86 @@ def run_logical_sim(at_house1, at_house2, at_point1, at_point2, at_scanner1, at_
         # Reset Actions
         action_list = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
         # List the enemies in line of sight
-        entities_with_los_to_enemy = line_of_sight_to_enemy([log_scd, log_drn, log_ugv])
+        entities_with_los_to_enemy = line_of_sight_to_enemy([suicide_drone, sensor_drone, ugv])
         if len(entities_with_los_to_enemy) > 0:
             # ENEMY FOUND !!!
-            attack_enemy(action_list, entities_with_los_to_enemy, log_scd, log_ugv)
+            attack_enemy(action_list, entities_with_los_to_enemy, suicide_drone, ugv)
         elif not all_entities_positioned:
             # MOVE TO INDICATION TARGET
-            all_entities_positioned = move_to_indication_target(action_list, all_entities_positioned, log_drn, log_scd,
-                                                                log_ugv)
+            all_entities_positioned = move_to_indication_target(action_list,
+                                                                all_entities_positioned,
+                                                                sensor_drone,
+                                                                suicide_drone,
+                                                                ugv)
         else:
             # AMBUSH ON INDICATION TARGET
-            plan_index = ambush_on_indigation_target(action_list, log_drn, log_scd, log_ugv, plan_index, start_ambush_step, step,
-                                        stimulation_1_step, stimulation_2_step)
+            plan_index, stimulation_1_step, stimulation_2_step = ambush_on_indigation_target(action_list, sensor_drone,
+                                                                                             suicide_drone, ugv,
+                                                                                             plan_index,
+                                                                                             start_ambush_step, step,
+                                                                                             stimulation_1_step,
+                                                                                             stimulation_2_step)
 
         # Execute Actions in simulation
-        obs, reward, done, _ = logic_sim.step(action_list)
+        obs, reward, done, _ = sim_env.step(action_list)
         logging.debug('obs = {}, reward = {}, done = {}'.format(obs, reward, done))
-        logic_sim.render()
+        sim_env.render()
 
         # DONE LOGIC
-        if done or step > logic_sim.MAX_STEPS :
-            reason = "Logical Simulation" if done else "step is " + step._str__()
+        if done or step > sim_env.MAX_STEPS:
+            reason = "Logical Simulation" if done else "Step is " + str(step)
             num_of_dead += len([ff for ff in log_enemies if ff.health == 0.0])
             num_of_lost_devices += len([i for i in log_entities if log_entities[i].health == 0.0])
             done = True
 
     # Episode is done
-    diff_step = logic_sim.MAX_STEPS - step + 1
-    diff_step = diff_step / logic_sim.MAX_STEPS
+    diff_step = sim_env.MAX_STEPS - step + 1
+    diff_step = diff_step / sim_env.MAX_STEPS
     this_reward = compute_reward(diff_step, num_of_dead, num_of_lost_devices, scenario_completed)
     print("LALALALA - Scenario completed: step ", step, " reward ", this_reward, " Done", done, "Reason", reason)
     return this_reward, diff_step, num_of_dead, num_of_lost_devices, scenario_completed
+
+
+def get_env_and_entities(env, is_logical):
+    """
+    Source for gym env and entities
+    Args:
+        env: PlannerEnv
+        is_logical: bool
+
+    Returns:
+        env: PlannerEnv
+        drn: PlannerEnv.Entity if is_logical else SensorDrone
+        scd: PlannerEnv.Entity if is_logical else SuicideDrone
+        ugv: PlannerEnv.Entity if is_logical else Ugv
+    """
+    ugv_entity = env.get_entity('UGV')
+    scd_entity = env.get_entity('Suicide')
+    drn_entity = env.get_entity('SensorDrone')
+    while not bool(ugv_entity):
+        ugv_entity = env.get_entity('UGV')
+    ugv = lg_ugv('UGV', UGV_START_POS if is_logical else Pos(ugv_entity.gpoint.x, ugv_entity.gpoint.y,
+                                                             ugv_entity.gpoint.z)) \
+        if is_logical else ugv_entity
+    while not bool(scd_entity):
+        scd_entity = env.get_entity('Suicide')
+    scd = lg_scd_drone('Suicide',
+                       SUICIDE_DRONE_START_POS if is_logical else Pos(scd_entity.gpoint.x, scd_entity.gpoint.y,
+                                                                      scd_entity.gpoint.z)) \
+        if is_logical else scd_entity
+    while not bool(drn_entity):
+        drn_entity = env.get_entity('SensorDrone')
+    drn = lg_scn_drone('SensorDrone',
+                       SENSOR_DRONE_START_POS if is_logical else Pos(drn_entity.gpoint.x, drn_entity.gpoint.y,
+                                                                     drn_entity.gpoint.z)) \
+        if is_logical else drn_entity
+
+    if is_logical:
+        log_entities = {drn.id: drn, scd.id: scd, ugv.id: ugv}
+        log_enemies = [sim_enemy(e) for e in env.enemies]
+        env = LogicSim(log_entities, log_enemies)
+
+    return env, drn, scd, ugv
 
 
 def attack_enemy(action_list, entities_with_los_to_enemy, log_scd, log_ugv):
@@ -337,7 +368,7 @@ def ambush_on_indigation_target(action_list, log_drn, log_scd, log_ugv, plan_ind
             add_action(action_list, log_ugv, 'TAKE_PATH', ('Path2', GATE_POS))
     plan_index = order_drones_movement(action_list, log_scd, log_drn, plan_index)
     order_drones_look_at(action_list, log_scd, log_drn)
-    return plan_index
+    return plan_index, stimulation_1_step, stimulation_2_step
 
 
 def move_to_indication_target(action_list, all_entities_positioned, log_drn, log_scd, log_ugv):
@@ -630,11 +661,7 @@ def play(save_dir, env):
         action_list = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
         print("LALALALA - Starting session: session ", session_num)
         curr_reward, curr_step, curr_num_of_dead, curr_num_of_lost_devices, curr_scenario_completed = \
-            run_logical_sim(lg_house1, lg_house2, lg_point1, lg_point2, lg_scanner1, lg_scanner2,
-                            lg_scanner3, \
-                            lg_suicide1, lg_suicide2, lg_suicide3, lg_window1, env, min_dist, start_time_x,
-                            start_time_y, \
-                            start_time_zz, timer_x_period, timer_y_period, timer_zz_period)
+            run_logical_sim(env, is_logical=True)
         # run_scenario(action_list, at_house1, at_house2, at_point1, at_point2, at_scanner1, at_scanner2, at_scanner3,
         #         at_suicide1, at_suicide2, at_suicide3, at_window1, env, min_dist, start_time_x, start_time_y,
         #         start_time_zz, timer_x_period, timer_y_period, timer_zz_period)

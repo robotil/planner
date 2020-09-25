@@ -11,10 +11,11 @@ class Drone(Entity):
     MAX_YAW_RATE_DEG_SEC = 90.0
     MAX_SPEED_MPS = 5.5556 * Entity.STEP_TIME  # 20.0 Kmh
     MAX_RANGE_OF_VIEW = 45  # meters
-    FIELD_OF_VIEW = np.pi / 4.0  # radians.   45 deg.
+
 
     def __init__(self, id, pos: Pos):
         super().__init__(id, pos)
+        self._max_range_of_view = Drone.MAX_RANGE_OF_VIEW
 
     def _is_same_args(self, *args):
         assert len(args) == 1
@@ -39,45 +40,26 @@ class Drone(Entity):
         else:
             self._continue_to_current_target()
 
-    def is_line_of_sight_to(self, pos):
-
-        range_to_target = self.pos.distance_to(pos)
-
-        is_los = range_to_target < Drone.MAX_RANGE_OF_VIEW
-
-        if is_los:
-            range_to_look_at = self.pos.distance_to(self.looking_at)
-            direction_to_target = self.pos.direction_vector(pos)
-            direction_to_look_at = self.pos.direction_vector(self.looking_at)
-
-            # cos alpha = A dot B / (norm A * norm B)
-            cos_angle = np.dot(direction_to_target, direction_to_look_at) / (range_to_target * range_to_look_at)
-
-            # first quater  - cos function decreasing
-            is_los = abs(cos_angle) > np.cos(Drone.FIELD_OF_VIEW)
-
-        return is_los
-
     def look_at(self, pos):
         logging.debug('Drone look_at {} {} {}'.format(pos.x, pos.y, pos.z))
         assert pos.z < 30
         self._looking_at = copy.copy(pos)
 
-    def step(self, *args):
-        # verify input
-        assert len(args) == 1
-        assert isinstance(args[0], Pos)
-        target_wp = args[0]
-        self._t += 1.0
-        # print("Drone step", self._t, self.pos)
-
-        if not self._target_pos.equals(target_wp):
-            # commanded target has changed
-            self._change_target(target_wp)
-        elif self._reached_target():
-            self._hover_in_place()
-        else:
-            self._continue_to_current_target()
+    # def step(self, *args):
+    #     # verify input
+    #     assert len(args) == 1
+    #     assert isinstance(args[0], Pos)
+    #     target_wp = args[0]
+    #     self._t += 1.0
+    #     # print("Drone step", self._t, self.pos)
+    #
+    #     if not self._target_pos.equals(target_wp):
+    #         # commanded target has changed
+    #         self._change_target(target_wp)
+    #     elif self._reached_target():
+    #         self._hover_in_place()
+    #     else:
+    #         self._continue_to_current_target()
 
     def clone(self):
         d = Drone(self.id, self.pos)
