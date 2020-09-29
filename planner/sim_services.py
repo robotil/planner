@@ -5,16 +5,19 @@ from planner_msgs.srv import CheckLOS, AllPathEntityToTarget
 import rclpy
 
 
-# check_line_of_sight
-# Args:
-#    one=geometry_msgs/Point
-#    two=geometry_msgs/Point
-# Return:
-#   Boolean
-#   True if in line of sight
-#   False if not
-
 def check_line_of_sight(one, two):
+    """ check_line_of_sight
+    Args:
+        one: geometry_msgs/Point
+        two: geometry_msgs/Point
+
+    Returns:
+        Boolean
+           True if in line of sight
+           False if not
+    """
+
+    # TODO consider look at direction
 
     res = False
     node = rclpy.create_node('check_line_of_sight')
@@ -48,7 +51,6 @@ def check_line_of_sight(one, two):
 #   All possible path between entity and target
 
 def get_all_possible_ways(entityid, target):
-
     res = {}
     node = rclpy.create_node('get_all_possible_ways')
     get_all_possible_ways_cli = node.create_client(AllPathEntityToTarget, 'get_all_possible_ways')
@@ -71,12 +73,13 @@ def get_all_possible_ways(entityid, target):
 
     return res
 
+
 if __name__ == '__main__':
     rclpy.init()
     p1 = Point(x=0.2, y=0.2, z=0.2)
     p2 = Point(x=0.4, y=0.4, z=0.4)
-    ret=check_line_of_sight(p1,p2)
-    print("ret state value="+ret.__str__()+" type"+str(type(ret)))
-    ret=get_all_possible_ways("Suicide", p2)
-    print("ret act value="+ret.__str__()+" type"+str(type(ret)))
+    ret = check_line_of_sight(p1, p2)
+    print("ret state value=" + ret.__str__() + " type" + str(type(ret)))
+    ret = get_all_possible_ways("Suicide", p2)
+    print("ret act value=" + ret.__str__() + " type" + str(type(ret)))
     rclpy.shutdown()

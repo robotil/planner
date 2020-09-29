@@ -56,6 +56,10 @@ SUICIDE_WPS = [NORTH_WEST_SUICIDE, NORTH_EAST_SUICIDE]
 OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
 ENEMY_POS = Pos(48.0, -58.0, 3.47494173)
 
+def add_action(actions, entity, action_name, params):
+    if not action_name in actions.keys():
+        actions[action_name]=[]
+    actions[action_name].append({entity.id:params})
 
 
 def is_entity_positioned(entity, pos):

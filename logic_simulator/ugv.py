@@ -20,6 +20,8 @@ class Ugv(Entity):
         super().__init__(id, pos)
         self._current_path = ''
         self._current_path_wp_index = 0
+        self._fov = Ugv.FIELD_OF_VIEW
+        self._max_range_of_view = Ugv.MAX_RANGE_OF_VIEW
 
     def reset(self):
         super().reset()
@@ -73,24 +75,6 @@ class Ugv(Entity):
                 logging.debug('Ugv go_to continue to index {}'.format(self._current_path_wp_index))
                 self._continue_to_current_target()
 
-    def is_line_of_sight_to(self, pos):
-
-        range_to_target = self.pos.distance_to(pos)
-
-        is_los = range_to_target < Ugv.MAX_RANGE_OF_VIEW
-
-        if is_los:
-            range_to_look_at = self.pos.distance_to(self.looking_at)
-            direction_to_target = self.pos.direction_vector(pos)
-            direction_to_look_at = self.pos.direction_vector(self.looking_at)
-
-            # cos alpha = A dot B / (norm A * norm B)
-            cos_angle = np.dot(direction_to_target, direction_to_look_at) / (range_to_target * range_to_look_at)
-
-            # first quarter  - cos function decreasing
-            is_los = cos_angle > np.cos(Ugv.FIELD_OF_VIEW)
-
-        return is_los
 
     def attack(self, pos, enemies_in_danger):
         logging.info('Ugv Attack on {} {} {}'.format(pos.x, pos.y, pos.z))
@@ -130,17 +114,17 @@ class Ugv(Entity):
         self._pos.add(velocity)
         logging.debug("end pos {} velocity {} _target_pos {}".format(self.pos, self.velocity, self._target_pos))
 
-    def step(self, *args):
-        assert len(args) == 2
-        assert isinstance(args[0], Pos)
-        assert isinstance(args[1], int)
-        target_wp = args[0]
-        path_id = args[1]
-        self._t += 1.0
-        print("Ugv step", self._t, self.pos)
-        if not self._target_pos.equals(target_wp):
-            self._change_target(target_wp)
-        elif self._reached_target():
-            self._hover_in_place()
-        else:
-            self._continue_to_current_target()
+    # def step(self, *args):
+    #     assert len(args) == 2
+    #     assert isinstance(args[0], Pos)
+    #     assert isinstance(args[1], int)
+    #     target_wp = args[0]
+    #     path_id = args[1]
+    #     self._t += 1.0
+    #     print("Ugv step", self._t, self.pos)
+    #     if not self._target_pos.equals(target_wp):
+    #         self._change_target(target_wp)
+    #     elif self._reached_target():
+    #         self._hover_in_place()
+    #     else:
+    #         self._continue_to_current_target()
