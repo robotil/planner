@@ -28,7 +28,7 @@ class Enemy(Entity):
 
     @property
     def is_alive(self):
-        return self._is_alive
+        return self.health > 0.0
 
     @property
     def priority(self):

@@ -66,6 +66,14 @@ class LogicSim(gym.Env):
         self._scatter = None
         matplotlib.interactive(True)
 
+    @property
+    def enemies(self):
+        return self._enemies
+
+    @property
+    def entities(self):
+        return self._entities.values()
+
     def reset(self):
         self._step = 0
         for e in chain(self._entities.values(), self._enemies):
@@ -123,9 +131,9 @@ class LogicSim(gym.Env):
         return entities_state, enemies_state, match_los
 
     def _update_enemies(self):
-        for e in self._enemies:
+        # perform step() to living enemies
+        for e in [enemy for enemy in self._enemies if enemy.is_alive]:
             e.step()
-        self._enemies = [enemy for enemy in self._enemies if enemy.health > 0]
 
     def _execute_entities_actions(self, actions):
         for action_name, ent_params_list in actions.items():
