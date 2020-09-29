@@ -277,8 +277,8 @@ def run_logical_sim(env, is_logical):
         # DONE LOGIC
         if done or step > sim_env.MAX_STEPS:
             reason = "Logical Simulation" if done else "Step is " + str(step)
-            num_of_dead += len([ff for ff in log_enemies if ff.health == 0.0])
-            num_of_lost_devices += len([i for i in log_entities if log_entities[i].health == 0.0])
+            num_of_dead += len([enemy for enemy in sim_env.enemies if not enemy.is_alive])
+            num_of_lost_devices += len([e for e in sim_env.entities if e.health == 0.0])
             done = True
 
     # Episode is done
@@ -735,16 +735,18 @@ def main(args):
     save_dir, model_dir, log_dir = CreateLogAndModelDirs(args)
 
     if args.job == 'train':
-        model_path = args.load_model
-        # If there is a path in load model, then load before training
-        if model_path != "" and os.path.exists(model_path):
-            train_loaded(args.algo, args.policy, model_path, args.n_timesteps, log_dir, model_dir, env_name,
-                         args.save_interval)
-        else:
-            train(args.algo, args.policy, args.pretrain, args.n_timesteps, log_dir, model_dir, env_name,
-                  args.save_interval)
+        # model_path = args.load_model
+        # # If there is a path in load model, then load before training
+        # if model_path != "" and os.path.exists(model_path):
+        #     train_loaded(args.algo, args.policy, model_path, args.n_timesteps, log_dir, model_dir, env_name,
+        #                  args.save_interval)
+        # else:
+        #     train(args.algo, args.policy, args.pretrain, args.n_timesteps, log_dir, model_dir, env_name,
+        #           args.save_interval)
+        raise NotImplementedError
     elif args.job == 'record':
-        record(env)
+        raise NotImplementedError
+        # record(env)
     elif args.job == 'play':
         play(save_dir, env)
     elif args.job == 'BC_agent':
