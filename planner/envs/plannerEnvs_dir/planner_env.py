@@ -18,7 +18,7 @@ from std_msgs.msg import String, Header
 from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
-from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath, SGoalAndPath
+from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath, SGoalAndPath, STwist
 
 from logic_simulator.pos import Pos
 from planner.sim_admin import check_state_simulation, act_on_simulation
@@ -76,7 +76,7 @@ class PlannerEnv(gym.Env):
             self.gpoint = Point()
             self.imu = Imu()
             self.health = KeyValue()
-            # self.state = state
+            self.twist = Twist()
 
         @property
         def pos(self):
@@ -93,6 +93,9 @@ class PlannerEnv(gym.Env):
 
         def update_health(self, n_health):
             self.health = n_health
+
+        def update_twist(self, n_twist):
+            self.health = n_twist
 
         def is_line_of_sight_to(self, pos):
             return check_line_of_sight(pos_to_point(self.pos), pos_to_point(pos))
@@ -160,6 +163,14 @@ class PlannerEnv(gym.Env):
             self.node.get_logger().info('This entity "%s" is not managed yet' % msg.id)
             return
         this_entity.update_health(msg.values)
+        self.node.get_logger().debug('Received: "%s"' % msg)
+
+    def entity_twist_callback(self, msg):
+        this_entity = self.get_entity(msg.id)
+        if (this_entity == None):
+            self.node.get_logger().info('This entity "%s" is not managed yet' % msg.id)
+            return
+        this_entity.update_twist(msg.twist)
         self.node.get_logger().debug('Received: "%s"' % msg)
 
     def move_entity_to_goal(self, entity_id, goal):
@@ -267,6 +278,8 @@ class PlannerEnv(gym.Env):
         self.entityImuSub = self.node.create_subscription(SImu, '/entity/imu', self.entity_imu_callback, 10)
         self.entityOverallHealthSub = self.node.create_subscription(SHealth, '/entity/overall_health',
                                                                     self.entity_overall_health_callback, 10)
+        self.entityTwistSub = self.node.create_subscription(STwist, '/entity/twist',
+                                                                    self.entity_twist_callback, 10)
         # Publish topics
         self.moveToPub = self.node.create_publisher(SGlobalPose, '/entity/move_to/goal', 10)
         self.attackPub = self.node.create_publisher(SGlobalPose, '/entity/attack/goal', 10)
