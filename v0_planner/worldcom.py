@@ -9,7 +9,7 @@ from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
 from actionlib_msgs.msg import GoalID, GoalStatus, GoalStatusArray
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
-from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath
+from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath, STwist
 from planner_msgs.srv import ActGeneralAdmin, StateGeneralAdmin, CheckLOS, AllPathEntityToTarget
 import planner_msgs
 
@@ -38,6 +38,7 @@ class WorldCom(Node):
             self.gpoint= Point()
             self.imu = Imu()
             self.health = KeyValue()
+            self.twist = Twist()
 
         def update_desc(self, n_ent):
             self.diagstatus = n_ent.diagstatus
@@ -51,6 +52,8 @@ class WorldCom(Node):
         def update_health(self, n_health):
             self.health = n_health
 
+        def update_twist(self, n_twist):
+            self.twist = n_twist
 
     def __init__(self, args=None):
         rclpy.init(args=args)
@@ -68,6 +71,7 @@ class WorldCom(Node):
         self.enemyDescriptionSub = self.create_subscription(EnemyReport, '/enemy/description', self.enemy_description_callback, 10)
         self.entityImuSub = self.create_subscription(SImu, '/entity/imu', self.entity_imu_callback, 10)
         self.entityOverallHealthSub = self.create_subscription(SHealth, '/entity/overall_health', self.entity_overall_health_callback, 10)
+        self.entityTwistSub = self.create_subscription(STwist, '/entity/twist', self.entity_twist_callback, 10)
 
         self.moveToPub = self.create_publisher(SGlobalPose, '/entity/moveto/goal', 10)
         self.attackPub = self.create_publisher(SGlobalPose, '/entity/attack/goal', 10)
@@ -103,7 +107,7 @@ class WorldCom(Node):
         return found
 
     def act_gen_admin_request(self, command):
-        if (command > 2) or (command < 0):
+        if (command > 3) or (command < 0):
             self.get_logger().warn('wrong command:'+ascii(command))
             return
         self.act_req = ActGeneralAdmin.Request()
@@ -138,31 +142,31 @@ class WorldCom(Node):
 
     def timer_callback(self):
         self.get_logger().info('Timer callback: "%d"' % self.i)
-        self.act_gen_admin_request(self.i)
-        if self.i==3:
-            self.i=0
-        else:
-            self.i += 1
-        self.state_gen_admin_request()
+        #self.act_gen_admin_request(1)
+        # if self.i==3:
+        #     self.i=0
+        # else:
+        #     self.i += 1
+        # self.state_gen_admin_request()
         goal=PointStamped()
         goal.header = Header()
         goal.point = Point()
         goal.point.x = 0.1
         goal.point.y = 0.1
         goal.point.z = 0.1
-        entt = self.get_entity("Suicide")
+        entt = self.get_entity("T_1")
         if (entt == None):
             print("No entity found")
             return
         else:
             self.move_entity_to_goal(entt, goal)
-        enn = self.get_enemy("Sniper")
+        enn = self.get_enemy("Sniper_1")
         if (enn == None):
             print("No ennemy found")
             return
         else:
             self.check_line_of_sight_request(entt, enn)
-        self.get_all_possible_ways_request(entt,goal.point)
+     #   self.get_all_possible_ways_request(entt,goal.point)
 
     def global_pose_callback(self, msg):
         this_entity = self.get_entity(msg.id)
@@ -218,6 +222,15 @@ class WorldCom(Node):
             return
         this_entity.update_health(msg.values)
         self.world_state['Health'] = msg.values
+        self.get_logger().debug('Received: "%s"' % msg)
+
+    def entity_twist_callback(self, msg):
+        this_entity = self.get_entity(msg.id)
+        if (this_entity == None):
+            self.get_logger().info('This entity "%s" is not managed yet' % msg.id)
+            return
+        this_entity.update_twist(msg.twist)
+        self.world_state['Twist'] = msg.twist
         self.get_logger().debug('Received: "%s"' % msg)
 
     def move_entity_to_goal(self, entity, goal):
