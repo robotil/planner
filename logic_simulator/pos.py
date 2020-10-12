@@ -1,18 +1,26 @@
 import numpy as np
+from geodesy import utm
 
 
 class Pos:
     EPSILON_DISTANCE = 0.1
-
+    old_school = False
     def __init__(self, x=0.0, y=0.0, z=0.0):
         """
-
+            x=lat, y=long, z=alt
         Returns:
             object:Pos
         """
-        self._x = float(x)
-        self._y = float(y)
-        self._z = float(z)
+        if self.old_school:
+            self._x = float(x)
+            self._y = float(y)
+            self._z = float(z)
+        else:
+            my_utm = utm.fromLatLong(x, y, z)
+            my_point = my_utm.toPoint()
+            self._x = my_point.x
+            self._y = my_point.y
+            self._z = my_point.z
 
     @property
     def x(self):
