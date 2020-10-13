@@ -55,6 +55,6 @@ class Pos:
         return "({X},{Y},{Z})".format(X=self.x, Y=self.y, Z=self.z)
 
     def toLongLatAlt(self):
-        long, lat = self.myProjPsik(self._x, self._y)
+        long, lat = self.myProjPsik(self._x, self._y, inverse=True)
         alt = self._z
         return long, lat, alt
