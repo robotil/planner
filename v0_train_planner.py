@@ -64,36 +64,36 @@ LOG_STD_MAX = 2
 LOG_STD_MIN = -20
 
 lg_ugv.paths = {
-    'Path1': [Pos(-47.0, -359.0, 1.00792499),
-              Pos(-49.0, -341.0, 1.04790355),
-              Pos(-29.0, -295.0, 0.40430533),
-              Pos(-17.0, -250.0, 1.06432373),
-              Pos(14.0, -180.0, 0.472875877),
-              Pos(22.0, -137.0, 1.80694756),
-              Pos(21.0, -98.0, 0.002950645),
-              Pos(19.0, -78.0, - 0.194334967),
-              Pos(17.0, -72.0, - 0.000997688),
-              Pos(19.0, -71.0, - 0.194334959)
+    'Path1': [Pos(-47.0, -359.0, 1.00792499),  # -0.003237954031736762, -1.489165185027396
+              Pos(-49.0, -341.0, 1.04790355),  # -0.0030756052855992846, -1.48918310231541
+              Pos(-29.0, -295.0, 0.40430533),  # -0.0026607149077111846, -1.4890039208196724
+              Pos(-17.0, -250.0, 1.06432373),  # -0.002254843476545978, -1.4888964115150864
+              Pos(14.0, -180.0, 0.472875877),  # -0.0016234879250980104, -1.4886186809124125
+              Pos(22.0, -137.0, 1.80694756),   # -0.0012356548207105307, -1.488547008157009
+              Pos(21.0, -98.0, 0.002950645),   # -0.0008838990579071472, -1.4885559666501482
+              Pos(19.0, -78.0, - 0.194334967), # -0.0007035114776812836, -1.4885738844559357
+              Pos(17.0, -72.0, - 0.000997688), # -0.0006493951941169343, -1.4885918024063152
+              Pos(19.0, -71.0, - 0.194334959)  # -0.0006403758164208759, -1.4885918023983988
               ],
-    'Path2': [Pos(19.0, -72.0, - 0.194336753),
-              Pos(26.0, -62.0, - 0.001001044),
-              Pos(26.0, -54.0, - 0.001001044),
-              Pos(27.0, -54.0, - 0.001000144)
+    'Path2': [Pos(19.0, -72.0, - 0.194336753), # -0.0006493951941169343, -1.4885918024063152
+              Pos(26.0, -62.0, - 0.001001044), # -0.0006493952663435379, -1.488511171401921
+              Pos(26.0, -54.0, - 0.001001044), # -0.0004870464497577727, -1.4885111712763717
+              Pos(27.0, -54.0, - 0.001000144)  # -0.0004870464557765968, -1.4885022122753293
               ]
 }
 
-UGV_START_POS = Pos(-47.0, -359.0, 1.00792499)
-SENSOR_DRONE_START_POS = Pos(-47.0, -359.0, 30.0)
-SUICIDE_DRONE_START_POS = Pos(-47.0, -359.0, 15)
-NORTH_WEST_SUICIDE = Pos(49.0, -13.0, 19.8076557)
-NORTH_EAST_SUICIDE = Pos(81.0, -20.0, 20.5166231)
-NORTH_EAST_OBSERVER = Pos(106.0, -5.0, 23.7457948)
+UGV_START_POS = Pos(-47.0, -359.0, 1.00792499)      # -0.003237954031736762, -1.489165185027396
+SENSOR_DRONE_START_POS = Pos(-47.0, -359.0, 30.0)   # -0.003237954031736762, -1.489165185027396
+SUICIDE_DRONE_START_POS = Pos(-47.0, -359.0, 15)    # -0.003237954031736762, -1.489165185027396
+NORTH_WEST_SUICIDE = Pos(49.0, -13.0, 19.8076557)   # -0.00011725195641559488, -1.488305114072351
+NORTH_EAST_SUICIDE = Pos(81.0, -20.0, 20.5166231)   # -0.000180387696583531, -1.4880184259154339
+NORTH_EAST_OBSERVER = Pos(106.0, -5.0, 23.7457948)  # -4.5096938076499695e-05, -1.4877944506832277
 # SOUTH_WEST = Pos(400.0, 200.0, 30.0)
-SOUTH_EAST = Pos(120.0, -100.0, 25.4169388)
-WEST_WINDOW_POS = Pos(43.0, -56.0, 3.95291735)
-NORTH_WINDOW_POS = Pos(47.0, -47.0, 3.4749414)
-SOUTH_WINDOW_POS = Pos(48.0, -58.0, 3.47494173)
-EAST_WINDOW_POS = Pos(51.0, -56.0, 10.0)
+SOUTH_EAST = Pos(120.0, -100.0, 25.4169388)         # -0.0009019389175458873, -1.487669025086678
+WEST_WINDOW_POS = Pos(43.0, -56.0, 3.95291735)      # -0.0005050853132641549, -1.488358868255788
+NORTH_WINDOW_POS = Pos(47.0, -47.0, 3.4749414)      # -0.0004239109088718295, -1.4883230321921168
+SOUTH_WINDOW_POS = Pos(48.0, -58.0, 3.47494173)     # -0.0005231241067742462, -1.4883140732526847
+EAST_WINDOW_POS = Pos(51.0, -56.0, 10.0)            # -0.0005050853631960761, -1.4882871962293
 PATH_ID = 'Path1'
 SOUTH_WEST_UGV_POS = lg_ugv.paths[PATH_ID][-1]
 GATE_POS = lg_ugv.paths['Path2'][-1]
@@ -101,7 +101,7 @@ TIME_TO_STIMULATE_1 = LogicSim.MAX_STEPS / 4
 TIME_TO_STIMULATE_2 = LogicSim.MAX_STEPS / 2
 SUICIDE_WPS = [NORTH_WEST_SUICIDE, NORTH_EAST_SUICIDE]
 OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
-ENEMY_POS = Pos(48.0, -58.0, 3.47494173)
+ENEMY_POS = Pos(48.0, -58.0, 3.47494173)            # -0.0005231241067742462, -1.4883140732526847
 
 
 def dist2d(one, two):
@@ -194,12 +194,13 @@ def order_drones_movement(actions, suicide_drone, sensor_drone, plan_index):
                                                                                                           OBSERVER_WPS[
                                                                                                               plan_index])
 
-    plan_index = plan_index if not change_target else (plan_index + 1) % len(OBSERVER_WPS)
+    if change_target:
+        plan_index = plan_index if not change_target else (plan_index + 1) % len(OBSERVER_WPS)
 
-    #   suicide.goto(SUICIDE_WPS[plan_index])
-    add_action(actions, suicide_drone, 'MOVE_TO', (SUICIDE_WPS[plan_index],))
-    #   observer.goto(OBSERVER_WPS[plan_index])
-    add_action(actions, sensor_drone, 'MOVE_TO', (OBSERVER_WPS[plan_index],))
+        #   suicide.goto(SUICIDE_WPS[plan_index])
+        add_action(actions, suicide_drone, 'MOVE_TO', (SUICIDE_WPS[plan_index],))
+        #   observer.goto(OBSERVER_WPS[plan_index])
+        add_action(actions, sensor_drone, 'MOVE_TO', (OBSERVER_WPS[plan_index],))
 
     return plan_index
 
@@ -262,7 +263,7 @@ def run_logical_sim(env, is_logical):
                                                                 ugv)
         else:
             # AMBUSH ON INDICATION TARGET
-            plan_index, stimulation_1_step, stimulation_2_step = ambush_on_indigation_target(action_list, sensor_drone,
+            plan_index, stimulation_1_step, stimulation_2_step = ambush_on_indication_target(action_list, sensor_drone,
                                                                                              suicide_drone, ugv,
                                                                                              plan_index,
                                                                                              start_ambush_step, step,
@@ -343,8 +344,8 @@ def attack_enemy(action_list, entities_with_los_to_enemy, log_scd, log_ugv):
         add_action(action_list, log_scd, 'MOVE_TO', (ENEMY_POS,))
 
 
-def ambush_on_indigation_target(action_list, log_drn, log_scd, log_ugv, plan_index, start_ambush_step, step,
-                                stimulation_1_step, stimulation_2_step):
+def ambush_on_indication_target(action_list, log_drn, log_scd, log_ugv, plan_index, start_ambush_step, step,
+                                stimulation_1_step, stimulation_2_step, gate_pos_commanded=None):
     if start_ambush_step == 0:
         start_ambush_step = step
         logging.info('step {} all entities positioned... start ambush phase'.format(step))
@@ -365,22 +366,26 @@ def ambush_on_indigation_target(action_list, log_drn, log_scd, log_ugv, plan_ind
             # ugv.attack(WEST_WINDOW_POS)
             add_action(action_list, log_ugv, 'ATTACK', (WEST_WINDOW_POS,))
         else:
-            add_action(action_list, log_ugv, 'TAKE_PATH', ('Path2', GATE_POS))
+            if not gate_pos_commanded:
+                add_action(action_list, log_ugv, 'TAKE_PATH', ('Path2', GATE_POS))
+                gate_pos_commanded = True
     plan_index = order_drones_movement(action_list, log_scd, log_drn, plan_index)
     order_drones_look_at(action_list, log_scd, log_drn)
     return plan_index, stimulation_1_step, stimulation_2_step
 
 
-def move_to_indication_target(action_list, all_entities_positioned, log_drn, log_scd, log_ugv):
+def move_to_indication_target(action_list, all_entities_positioned, log_drn, log_scd, log_ugv, commanded=None):
     all_entities_positioned = is_entity_positioned(log_scd, NORTH_WEST_SUICIDE) and \
                               is_entity_positioned(log_drn, NORTH_EAST_OBSERVER) and \
                               is_entity_positioned(log_ugv, SOUTH_WEST_UGV_POS)
-    # suicide.goto(NORTH_WEST)
-    add_action(action_list, log_scd, 'MOVE_TO', (NORTH_WEST_SUICIDE,))
-    # observer.goto(NORTH_EAST)
-    add_action(action_list, log_drn, 'MOVE_TO', (NORTH_EAST_OBSERVER,))
-    # ugv.goto(PATH_ID, SOUTH_WEST)
-    add_action(action_list, log_ugv, 'TAKE_PATH', (PATH_ID, SOUTH_WEST_UGV_POS))
+
+    if not commanded:
+        # suicide.goto(NORTH_WEST)
+        add_action(action_list, log_scd, 'MOVE_TO', (NORTH_WEST_SUICIDE,))
+        # observer.goto(NORTH_EAST)
+        add_action(action_list, log_drn, 'MOVE_TO', (NORTH_EAST_OBSERVER,))
+        # ugv.goto(PATH_ID, SOUTH_WEST)
+        add_action(action_list, log_ugv, 'TAKE_PATH', (PATH_ID, SOUTH_WEST_UGV_POS))
     return all_entities_positioned
 
 
