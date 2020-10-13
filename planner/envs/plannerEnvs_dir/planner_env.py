@@ -28,6 +28,7 @@ from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocal
 STOP = 0
 START = 1
 PAUSE = 2
+RUN = 3
 
 LIST_ACTIONS = ['MOVE_TO', 'LOOK_AT', 'ATTACK', 'TAKE_PATH']
 
@@ -448,15 +449,15 @@ class PlannerEnv(gym.Env):
     def do_action(self, agent_action):
         self._actions = agent_action
         for act in self._actions['MOVE_TO']:
-            if len(act) > 1:
+            if len(act) > 0:
                 for elm in act:
                     entity_id = elm.popitem()[0]  # get key of dictionary
                     goal = PointStamped()
-                    goal.point = elm[entity_id]
+                    goal.point = elm[entity_id].toLongLatAlt()
                     self.move_entity_to_goal(entity_id, goal)
                     self._actions['MOVE_TO'].remove(elm)
         for act in self._actions['LOOK_AT']:
-            if len(act) > 1:
+            if len(act) > 0:
                 for elm in act:
                     entity_id = elm.popitem()[0]  # get key of dictionary
                     goal = PointStamped()
@@ -464,7 +465,7 @@ class PlannerEnv(gym.Env):
                     self.look_at_goal(entity_id, goal)
                     self._actions['LOOK_AT'].remove(elm)
         for act in self._actions['ATTACK']:
-            if len(act) > 1:
+            if len(act) > 0:
                 for elm in act:
                     entity_id = elm.popitem()[0]  # get key of dictionary
                     goal = PointStamped()
@@ -472,7 +473,7 @@ class PlannerEnv(gym.Env):
                     self.attack_goal(entity_id, goal)
                     self._actions['ATTACK'].remove(elm)
         for act in self._actions['TAKE_PATH']:
-            if len(act) > 1:
+            if len(act) > 0:
                 for elm in act:
                     entity_id = elm.popitem()[0]  # get key of dictionary
                     path_name = elm[entity_id][0]

@@ -1,13 +1,15 @@
 import numpy as np
 from geodesy import utm
-
+from pyproj import Proj
 
 class Pos:
     EPSILON_DISTANCE = 0.1
     old_school = False
+    ZoneNo = "31"
+    myProjPsik = Proj("+proj=utm +zone=" + ZoneNo + "+south +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
     def __init__(self, x=0.0, y=0.0, z=0.0):
         """
-            x=lat, y=long, z=alt
+            x=long, y=lat, z=alt
         Returns:
             object:Pos
         """
@@ -16,11 +18,11 @@ class Pos:
             self._y = float(y)
             self._z = float(z)
         else:
-            my_utm = utm.fromLatLong(x, y, z)
-            my_point = my_utm.toPoint()
-            self._x = my_point.x
-            self._y = my_point.y
-            self._z = my_point.z
+            #myProjPsik = Proj("+proj=utm +zone="+self.ZoneNo+"+south +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+            self._x, self._y = self.myProjPsik(x, y)
+            # my_utm = utm.fromLatLong(x, y, z)
+            # my_point = my_utm.toPoint()
+            self._z = float(z)
 
     @property
     def x(self):
@@ -51,3 +53,8 @@ class Pos:
 
     def __str__(self):
         return "({X},{Y},{Z})".format(X=self.x, Y=self.y, Z=self.z)
+
+    def toLongLatAlt(self):
+        long, lat = self.myProjPsik(self._x, self._y)
+        alt = self._z
+        return long, lat, alt
