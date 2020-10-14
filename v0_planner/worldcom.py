@@ -35,6 +35,7 @@ class WorldCom(Node):
         def __init__(self, msg):
             self.id = msg.id
             self.diagstatus = msg.diagstatus
+            self.type = 0
             self.gpoint= Point()
             self.imu = Imu()
             self.health = KeyValue()
@@ -142,30 +143,38 @@ class WorldCom(Node):
 
     def timer_callback(self):
         self.get_logger().info('Timer callback: "%d"' % self.i)
-        #self.act_gen_admin_request(1)
-        # if self.i==3:
-        #     self.i=0
-        # else:
-        #     self.i += 1
+        #self.act_gen_admin_request(1) #(self.i)
+        if self.i==4:
+            self.i=1
+        else:
+            self.i += 1
         # self.state_gen_admin_request()
+        test_entities = self.entities
+        test_enemies = self.enemies
+        self.get_logger().info('Entities: ' + self.entities.__str__()+ ' Enemies: '+ self.enemies.__str__())
+        for i in test_entities:
+            print("entity:"+i.id+" type:"+ ascii(i.type) + " level:"+ ascii(i.diagstatus.level))
+            for j in i.diagstatus.values:
+                print(j)
+        for i in test_enemies:
+            print("enemy:"+i.id+" cep:"+ ascii(i.cep) + " class:"+ ascii(i.tclass) + " is_alive: "+ ascii(i.is_alive))
+
         goal=PointStamped()
         goal.header = Header()
         goal.point = Point()
-        goal.point.x = 0.1
-        goal.point.y = 0.1
-        goal.point.z = 0.1
-        entt = self.get_entity("T_1")
-        if (entt == None):
-            print("No entity found")
-            return
-        else:
+        goal.point.x = 0.
+        ies:
+            entt = self.get_entity(i.id)
+            if (entt == None):
+                print("No entity found")
+                return
             self.move_entity_to_goal(entt, goal)
-        enn = self.get_enemy("Sniper_1")
-        if (enn == None):
-            print("No ennemy found")
-            return
-        else:
-            self.check_line_of_sight_request(entt, enn)
+        for i in test_enemies:
+            bad = self.get_enemy(i.id) #enn = self.get_enemy("Sniper_1")
+            if (bad == None):
+                print("No ennemy found")
+                return
+                self.check_line_of_sight_request(entt, enn)
      #   self.get_all_possible_ways_request(entt,goal.point)
 
     def global_pose_callback(self, msg):
