@@ -16,6 +16,7 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import String, Header
 from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
+from actionlib_msgs.msg import GoalID, GoalStatus, GoalStatusArray
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
 from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath, SGoalAndPath, STwist
@@ -74,7 +75,8 @@ class PlannerEnv(gym.Env):
             # def __init__(self, msg, state='zero'):
             self.id = msg.id
             self.diagstatus = msg.diagstatus
-            self.gpoint = Point()
+            self.type = 0
+            self.gpoint= Point()
             self.imu = Imu()
             self.health = KeyValue()
             self.twist = Twist()
@@ -96,7 +98,7 @@ class PlannerEnv(gym.Env):
             self.health = n_health
 
         def update_twist(self, n_twist):
-            self.health = n_twist
+            self.twist = n_twist
 
         def is_line_of_sight_to(self, pos):
             return check_line_of_sight(pos_to_point(self.pos), pos_to_point(pos))
