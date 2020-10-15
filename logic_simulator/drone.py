@@ -40,6 +40,13 @@ class Drone(Entity):
         else:
             self._continue_to_current_target()
 
+    def update(self):
+        if self._reached_target():
+            self._hover_in_place()
+        else:
+            self._continue_to_current_target()
+
+
     def look_at(self, pos):
         logging.debug('Drone look_at {} {} {}'.format(pos.x, pos.y, pos.z))
         assert pos.z < 30

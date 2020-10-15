@@ -61,6 +61,7 @@ class LogicSim(gym.Env):
         self._entities = entities
         self._enemies = enemies
         self._step = 0
+        self._entities_not_commanded = []
         self._fig = LogicSim.FIG
         self._ax = self._fig.add_subplot(111, projection='3d')
         self._scatter = None
@@ -118,7 +119,13 @@ class LogicSim(gym.Env):
         """
         self._step += 1
 
+        # entities_not_commanded = copy.deepcopy(self._entities)
+
+        self._entities_not_commanded = [*self.entities]
+
         self._execute_entities_actions(actions)
+
+        self._update_not_commanded()
 
         self._update_enemies()
 
@@ -143,9 +150,15 @@ class LogicSim(gym.Env):
                 for entity_id, params in ent_params.items():
                     assert entity_id in self._entities.keys(), \
                         'self._entities does not have key {}'.format(str(entity_id))
+                    # entity got a new command - remove from not commanded
+                    self._entities_not_commanded = [ent for ent in self._entities_not_commanded if ent.id != entity_id]
+                    # extract entity
                     entity = self._entities[entity_id]
+                    # extract method
                     method = LogicSim.ACTIONS_TO_METHODS[action_name][entity.__class__]
+                    # extract params
                     params = self._parse_attack_params(params) if action_name == 'ATTACK' else params
+                    # execute entities method with params
                     method(entity, *params)
 
     def _parse_attack_params(self, params):
@@ -192,3 +205,8 @@ class LogicSim(gym.Env):
             s += str(e)
             s += '\n'
         return str(s)
+
+    def _update_not_commanded(self):
+        for e in self._entities_not_commanded:
+            e.update()
+

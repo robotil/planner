@@ -32,7 +32,10 @@ class Entity:
     def clone(self):
         raise NotImplementedError
 
-    def step(self, *args):
+    # def step(self, *args):
+    #     raise NotImplementedError
+
+    def update(self):
         raise NotImplementedError
 
     def _is_same_args(self, *args):
@@ -55,6 +58,8 @@ class Entity:
             is_los = cos_angle > np.cos(self._fov)
 
         return is_los
+
+
 
     @property
     def id(self):

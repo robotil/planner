@@ -1,10 +1,10 @@
 import numpy as np
-from geodesy import utm
+# from geodesy import utm
 from pyproj import Proj
 
 class Pos:
     EPSILON_DISTANCE = 0.1
-    old_school = False
+    old_school = True
     ZoneNo = "31"
     myProjPsik = Proj("+proj=utm +zone=" + ZoneNo + "+south +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
     def __init__(self, x=0.0, y=0.0, z=0.0):

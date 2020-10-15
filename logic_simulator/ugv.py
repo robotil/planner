@@ -21,11 +21,13 @@ class Ugv(Entity):
         self._current_path_wp_index = 0
         self._fov = Ugv.FIELD_OF_VIEW
         self._max_range_of_view = Ugv.MAX_RANGE_OF_VIEW
+        self._final_wp = None
 
     def reset(self):
         super().reset()
         self._current_path = ''
         self._current_path_wp_index = 0
+        self._final_wp = None
 
     @property
     def pos(self) -> Pos:
@@ -41,10 +43,11 @@ class Ugv(Entity):
 
     def go_to(self, path_id, target_wp):
         logging.debug('Ugv go_to path_id{} ({},{},{})'.format(path_id, target_wp.x, target_wp.y, target_wp.z))
-
+        self._final_wp = target_wp
         if self._reached_target(target_wp):
             logging.debug('Ugv go_to command satisfied')
             # go_to command satisfied
+            self._final_wp = None
             self._hover_in_place()
         else:
             # adjust path
@@ -56,7 +59,7 @@ class Ugv(Entity):
             waypoints = Ugv.paths[path_id]
             num_of_waypoints = len(waypoints)
             assert isinstance(waypoints, list) and num_of_waypoints > 0
-            # next waypoint in cuurent path
+            # next waypoint in current path
             target_pos = waypoints[self._current_path_wp_index]
             if not self._target_pos.equals(target_pos):
                 # commanded target has changed
@@ -111,6 +114,11 @@ class Ugv(Entity):
         velocity = self._speed * self._velocity_dir
         self._pos.add(velocity)
         logging.debug("end pos {} velocity {} _target_pos {}".format(self.pos, self.velocity, self._target_pos))
+
+    def update(self):
+        if self._final_wp is not None:
+            self.go_to(self._current_path, self._final_wp)
+
 
     # def step(self, *args):
     #     assert len(args) == 2
