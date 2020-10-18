@@ -4,12 +4,12 @@ from pyproj import Proj
 
 class Pos:
     EPSILON_DISTANCE = 0.1
-    old_school = True
+    old_school = False
     ZoneNo = "31"
-    myProjPsik = Proj("+proj=utm +zone=" + ZoneNo + "+south +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+    myProjPsik = Proj(proj= 'utm', zone=31, ellps='WGS84', preserve_units=False) #Proj("+proj=utm +zone=" + ZoneNo + "+south +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
     def __init__(self, x=0.0, y=0.0, z=0.0):
         """
-            x=long, y=lat, z=alt
+            x=LAT, y=LONG, z=ALT
         Returns:
             object:Pos
         """
@@ -19,7 +19,7 @@ class Pos:
             self._z = float(z)
         else:
             #myProjPsik = Proj("+proj=utm +zone="+self.ZoneNo+"+south +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
-            self._x, self._y = self.myProjPsik(x, y)
+            self._x, self._y = Pos.myProjPsik(y, x)
             # my_utm = utm.fromLatLong(x, y, z)
             # my_point = my_utm.toPoint()
             self._z = float(z)
@@ -55,6 +55,6 @@ class Pos:
         return "({X},{Y},{Z})".format(X=self.x, Y=self.y, Z=self.z)
 
     def toLongLatAlt(self):
-        long, lat = self.myProjPsik(self._x, self._y, inverse=True)
+        long, lat = Pos.myProjPsik(self._x, self._y, inverse=True)
         alt = self._z
         return long, lat, alt

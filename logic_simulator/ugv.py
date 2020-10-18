@@ -78,7 +78,7 @@ class Ugv(Entity):
                 self._continue_to_current_target()
 
     def attack(self, pos, enemies_in_danger):
-        logging.info('Ugv Attack on {} {} {}'.format(pos.x, pos.y, pos.z))
+        logging.debug('Ugv Attack on {} {} {}'.format(pos.x, pos.y, pos.z))
         # TODO logic for uncertainty and CTE
         for e in enemies_in_danger:
             e.health *= 0.5

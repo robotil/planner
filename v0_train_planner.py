@@ -67,33 +67,33 @@ LOG_STD_MIN = -20
 
 lg_ugv.paths = {
 
-    'Path1': [Pos(-1.48859180239839880, -0.003237954031736762, 1.00792499),  # Pos(-47.0, -359.0, 1.00792499), Lat=-0.003237954031736762, Lon=-1.489165185027396 31N
-              Pos(-1.48859180239839880, -0.0030756052855992846, 1.04790355),  # Pos(-49.0, -341.0, 1.04790355), Lat=-0.0030756052855992846, Lon=-1.48918310231541
-              Pos(-1.48859180239839880, -0.0026607149077111846, 0.40430533),  # Pos(-29.0, -295.0, 0.40430533), Lat=-0.0026607149077111846, Lon=-1.4890039208196724
-              Pos(-1.48859180239839880, -0.002254843476545978, 1.06432373),  # Pos(-17.0, -250.0, 1.06432373), Lat=-0.002254843476545978, Lon=-1.4888964115150864
-              Pos(-1.4885918023983988, -0.0016234879250980104, 0.472875877),  # Pos(14.0, -180.0, 0.472875877), Lat=-0.0016234879250980104, Lon=-1.4886186809124125
-              Pos(-1.4885918023983988, -0.0012356548207105307, 1.80694756),   # Pos(22.0, -137.0, 1.80694756),  Lat=-0.0012356548207105307, Lon=-1.488547008157009
-              Pos(-1.4885918023983988, -0.0008838990579071472, 0.002950645),   # Pos(21.0, -98.0, 0.002950645),  Lat=-0.0008838990579071472, Lon=-1.4885559666501482
-              Pos(-1.4885918023983988, -0.0007035114776812836, - 0.194334967), # Pos(19.0, -78.0, - 0.194334967),Lat=-0.0007035114776812836, Lon=-1.4885738844559357
-              Pos(-1.4885918023983988, -0.0006493951941169343, - 0.000997688), # Pos(17.0, -72.0, - 0.000997688),Lat=-0.0006493951941169343, Lon=-1.4885918024063152
-              Pos(-1.4885918023983988, -0.0006403758164208759, - 0.194334959)  # Pos(19.0, -71.0, - 0.194334959) Lat=-0.0006403758164208759, Lon=-1.4885918023983988
+    'Path1': [Pos(29.9968816, 32.9994866, 1.75025599),
+              Pos(29.9969181, 32.9994912, 2.30123867),
+              Pos(29.9973316, 32.9996937, 1.02103409),
+              Pos(29.9977419, 32.9998162, 2.34626527),
+              Pos(29.9983693, 33.0001438, 1.14929717),
+              Pos(29.9987616, 33.0002219, 3.81971129),
+              Pos(29.9991068, 33.0002142, 0.213150453),
+              Pos(29.9992864, 33.0001952, -0.182928821),
+              Pos(29.9993341, 33.0001884, -0.180931998),
+              Pos(29.9993667, 33.0002117, -0.18193179)
               ],
-    'Path2': [Pos(-1.4885918024063152 , -0.0006493951941169343, - 0.194336753), # -0.0006493951941169343, -1.4885918024063152
-              Pos(-1.488511171401921  , -0.0006493952663435379, - 0.001001044), # -0.0006493952663435379, -1.488511171401921
-              Pos(-1.4885111712763717 , -0.0004870464497577727, - 0.001001044), # -0.0004870464497577727, -1.4885111712763717
-              Pos(-1.4885022122753293 , -0.0004870464557765968, - 0.001000144)  # -0.0004870464557765968, -1.4885022122753293
+    'Path2': [Pos(29.9993825, 33.0002122, -0.390682418), 
+              Pos(29.9995118, 33.0002082, -0.390672229), 
+              Pos(29.9995114, 33.0002533, -0.390669329), 
+              Pos(29.999509, 33.0002783, -0.00499354924) 
               ]
 }
 
-UGV_START_POS = Pos(-1.489165185027396, -0.003237954031736762, 1.00792499 ) #Pos(-47.0, -359.0, 1.00792499)      # -0.003237954031736762, -1.489165185027396
-SENSOR_DRONE_START_POS = Pos(-1.489165185027396, -0.003237954031736762, 30.0)   # Pos(-47.0, -359.0, 30.0)    -0.003237954031736762, -1.489165185027396
-SUICIDE_DRONE_START_POS = Pos(-1.489165185027396, -0.003237954031736762, 15)                   #Pos(-47.0, -359.0, 15)        -0.003237954031736762,          -1.489165185027396
-NORTH_WEST_SUICIDE =      Pos(-1.488305114072351, -0.00011725195641559488, 19.8076557)            # Pos(49.0, -13.0, 19.8076557) -0.00011725195641559488, -1.488305114072351
-NORTH_EAST_SUICIDE =      Pos(-1.4880184259154339, -0.000180387696583531, 20.5166231)           # Pos(81.0, -20.0, 20.5166231) -0.000180387696583531,    -1.4880184259154339
-NORTH_EAST_OBSERVER =     Pos(-1.4877944506832277, -4.5096938076499695e-05, 23.7457948)            # Pos(106.0, -5.0, 23.7457948) -4.5096938076499695e-05,   -1.4877944506832277
+UGV_START_POS = Pos(29.996738, 32.9995218, 1.01453949)
+SENSOR_DRONE_START_POS = Pos(29.9967071, 32.9994369, 2.16229518)
+SUICIDE_DRONE_START_POS = Pos(29.9966709, 32.9994617, 2.12602784)
+NORTH_WEST_SUICIDE =    Pos(29.999815, 33.0008424, 21.0201285)  #Suicide2
+NORTH_EAST_SUICIDE =    Pos(29.9993852, 33.0008575, 20.5126056) #Suicide1
+NORTH_EAST_OBSERVER =   Pos( -0.000043,0.000952, 23)              # Pos(106.0, -5.0, 23.7457948) -4.5096938076499695e-05,   -1.4877944506832277
 # SOUTH_WEST = Pos(400.0, 200.0, 30.0)
 SOUTH_EAST =        Pos(-1.487669025086678, -0.0009019389175458873, 25.4169388)   # Pos(120.0, -100.0, 25.4169388)    -0.0009019389175458873, -1.487669025086678
-WEST_WINDOW_POS =   Pos(-1.488358868255788 , -0.0005050853132641549, 3.95291735)     # Pos(43.0, -56.0, 3.95291735)     -0.0005050853132641549, -1.488358868255788
+WEST_WINDOW_POS =   Pos(29.9994918, 33.0004458,10.015047)     # Window1
 NORTH_WINDOW_POS =  Pos(-1.4883230321921168, -0.0004239109088718295, 3.4749414)      # Pos(47.0, -47.0, 3.4749414)      -0.0004239109088718295, -1.4883230321921168
 SOUTH_WINDOW_POS =  Pos(-1.4883140732526847, -0.0005231241067742462, 3.47494173)     # Pos(48.0, -58.0, 3.47494173)     -0.0005231241067742462, -1.4883140732526847
 EAST_WINDOW_POS =   Pos(-1.4882871962293, -0.0005050853631960761, 10.0)           # Pos(51.0, -56.0, 10.0)           -0.0005050853631960761, -1.4882871962293
@@ -106,7 +106,7 @@ TIME_TO_STIMULATE_2 = LogicSim.MAX_STEPS / 2
 SUICIDE_WPS = [NORTH_WEST_SUICIDE, NORTH_EAST_SUICIDE]
 OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
 
-ENEMY_POS = Pos(-1.4883140732526847 , -0.0005231241067742462, 3.47494173)            # Pos(48.0, -58.0, 3.47494173) -0.0005231241067742462, -1.4883140732526847
+ENEMY_POS = Pos(29.999796, 33.0004159, 0.0447149366)
 
 
 def dist2d(one, two):
@@ -180,7 +180,7 @@ def populate():
 
 
 def line_of_sight(ent, pos):
-    return ent.is_line_of_sight_to(pos)
+    return False  # ent.is_line_of_sight_to(pos)
 
 
 def line_of_sight_to_enemy(entities):
@@ -228,11 +228,10 @@ def order_drones_look_at(actions, suicide_drone, sensor_drone):
 
 def run_logical_sim(env, is_logical):
     # Wait until there is some enemy
-    logging.debug('Wait for enemies...')
-    x = threading.Thread(target=populate, args=())
-    logging.info("Before running thread")
-    x.start()
-
+    # logging.debug('Wait for enemies...')
+    # x = threading.Thread(target=populate, args=())
+    # logging.info("Before running thread")
+    # x.start()
     obs = env.reset()
 
     while not bool(obs['enemies']):
@@ -276,7 +275,7 @@ def run_logical_sim(env, is_logical):
 
         else:
             # AMBUSH ON INDICATION TARGET
-            plan_index, stimulation_1_step, stimulation_2_step, gate_pos_commanded, plan_phase_commanded = ambush_on_indication_target( \
+            plan_index, stimulation_1_step, stimulation_2_step, gate_pos_commanded, plan_phase_commanded, start_ambush_step = ambush_on_indication_target( \
                 action_list, sensor_drone,
                 suicide_drone, ugv,
                 plan_index,
@@ -387,7 +386,7 @@ def ambush_on_indication_target(action_list, log_drn, log_scd, log_ugv, plan_ind
                 gate_pos_commanded = True
     plan_index, move_commanded = order_drones_movement(action_list, log_scd, log_drn, plan_index, move_commanded)
     order_drones_look_at(action_list, log_scd, log_drn)
-    return plan_index, stimulation_1_step, stimulation_2_step, gate_pos_commanded, move_commanded
+    return plan_index, stimulation_1_step, stimulation_2_step, gate_pos_commanded, move_commanded, start_ambush_step
 
 
 def move_to_indication_target(action_list, all_entities_positioned, log_drn, log_scd, log_ugv):
@@ -608,17 +607,17 @@ def run_scenario(action_list, at_house1, at_house2, at_point1, at_point2, at_sca
 
 def play(save_dir, env):
     # action_list = {'MOVE_TO': [{}], 'LOOK_AT': [{}], 'ATTACK': [{}], 'TAKE_PATH': [{}]}
-    at_scanner1 = Point(x=-0.000531347, y=0.001073413, z=25.4169386)
-    at_scanner2 = Point(x=-4.25E-05, y=0.000951778, z=23.7457949)
-    at_scanner3 = Point(x=0.000144236, y=0.000308294, z=23.2363825)
+    at_scanner1 = Pos(29.9994623, 33.0012379, 32.9879463)
+    at_scanner2 = Pos(29.9999499, 33.0010976, 29.3279355)
+    at_scanner3 = Pos(30.0001362, 33.0003552, 27.6133062)
 
-    at_house1 = Point(x=-0.00052199, y=0.000427823, z=3.47494171)
-    at_house2 = Point(x=-0.000473681, y=0.000458237, z=3.94403081)
-    at_house3 = Point(x=-0.000422862, y=0.000418143, z=3.47494102)
+    at_house1 = Pos(29.9994717, 33.0004931, 3.47207769)
+    at_house2 = Pos(29.9995199, 33.0005282, 10.00616)
+    at_house3 = Pos(29.9995706, 33.0004819, 9.53707147)
 
-    at_suicide1 = Point(x=-0.000608696, y=0.000743706, z=20.2996389)
-    at_suicide2 = Point(x=-0.000177843, y=0.000730626, z=20.5166236)
-    at_suicide3 = Point(x=-0.000118638, y=0.000438844, z=19.8076561)
+    at_suicide1 = Pos(29.9993852, 33.0008575, 20.5126056)
+    at_suicide2 = Pos(29.999815, 33.0008424, 21.0201285)
+#    at_suicide3 = Pos(x=-0.000118638, y=0.000438844, z=19.8076561)
 
     at_point1 = Point(x=-0.000638552, y=0.000171134, z=-0.194334959)
     at_point2 = Point(x=-0.00048394, y=0.000241653, z=-0.001000144)

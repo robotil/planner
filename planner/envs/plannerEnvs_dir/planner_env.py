@@ -38,19 +38,20 @@ def point_to_pos(point: Point) -> Pos:
 
 
 def pos_to_point(pos: Pos) -> Point:
-    return Point(x=pos.x, y=pos.y, z=pos.z)
+    lon, lat, alt = pos.toLongLatAlt()
+    return Point(x=lat, y=lon, z=alt)
 
 
 class PlannerEnv(gym.Env):
     MAX_STEPS = 200
     STEP_REWARD = 1 / MAX_STEPS
     FINAL_REWARD = 1.0
-
+    ENEMY_POS_2 = Point(x=29.999796, y=33.0004159, z=0.0447149366)
     class Enemy:
         def __init__(self, msg):
             self.cep = msg.cep
             # self.gpoint = msg.gpose # self.gpoint = Point(x=-0.000204155, y=0.00035984, z=0.044715006)
-            self.gpoint = Point(x=40.0, y=-23.0, z=0.044715006)
+            self.gpoint = PlannerEnv.ENEMY_POS_2 #Point(x=40.0, y=-23.0, z=0.044715006)
             self.priority = msg.priority
             self.tclass = msg.tclass
             self.is_alive = True
@@ -196,7 +197,7 @@ class PlannerEnv(gym.Env):
     #     self.takePathPub.publish(msg)
 
     def take_goal_path(self, entity_id, path, goal):
-        self.node.get_logger().info('Entity:' + entity_id + " should take the path:" + path.name + " to reach: " + goal)
+        self.node.get_logger().info('Entity:' + entity_id + " should take the path:" + path.name + " to reach: " + goal.__str__())
         msg = SGoalAndPath()
         msg.goal = goal  # Point
         msg.path = path  # OPath
@@ -282,7 +283,7 @@ class PlannerEnv(gym.Env):
         self.entityTwistSub = self.node.create_subscription(STwist, '/entity/twist',
                                                                     self.entity_twist_callback, 10)
         # Publish topics
-        self.moveToPub = self.node.create_publisher(SGlobalPose, '/entity/move_to/goal', 10)
+        self.moveToPub = self.node.create_publisher(SGlobalPose, '/entity/moveto/goal', 10)
         self.attackPub = self.node.create_publisher(SGlobalPose, '/entity/attack/goal', 10)
         self.lookPub = self.node.create_publisher(SGlobalPose, '/entity/look/goal', 10)
         self.takePathPub = self.node.create_publisher(SPath, '/entity/takepath', 10)
@@ -319,19 +320,19 @@ class PlannerEnv(gym.Env):
     def init_env(self):
         if self.simOn:
             ret = check_state_simulation()
-            if ret != START or ret != PAUSE:
-                print("Inconsistent state of the simulation = " + str(ret))
+            # if ret != START or ret != PAUSE:
+            #     print("Inconsistent state of the simulation = " + str(ret)) LO Ichpat ...
             nret = act_on_simulation(ascii(STOP))
             if nret != STOP:
                 print("Couldn't stop the simulation")
             else:
                 self.simOn = False
 
-        # Restart simulation
+        #Restart simulation
         ret = act_on_simulation(ascii(START))
         if ret != START:
             print("Couldn't start the simulation")
-
+        ret = act_on_simulation(ascii(RUN))
         self.simOn = True
 
     def reset(self):
@@ -451,38 +452,46 @@ class PlannerEnv(gym.Env):
         for act in self._actions['MOVE_TO']:
             if len(act) > 0:
                 for elm in act:
-                    entity_id = elm.popitem()[0]  # get key of dictionary
+                    # entity_id = elm.popitem()[0]  # get key of dictionary
+                    entity_id = elm
                     goal = PointStamped()
-                    goal.point = elm[entity_id].toLongLatAlt()
+                    lon, lat, alt = act[entity_id][0].toLongLatAlt()
+                    goal.point = Point(x = lat, y = lon, z = alt)
                     self.move_entity_to_goal(entity_id, goal)
-                    self._actions['MOVE_TO'].remove(elm)
+                    # self._actions['MOVE_TO'].remove(elm)
         for act in self._actions['LOOK_AT']:
             if len(act) > 0:
                 for elm in act:
-                    entity_id = elm.popitem()[0]  # get key of dictionary
+                    # entity_id = elm.popitem()[0]  # get key of dictionary
+                    entity_id = elm
                     goal = PointStamped()
-                    goal.point = elm[entity_id]
+                    lon, lat, alt = act[entity_id][0].toLongLatAlt()
+                    goal.point = Point(x = lat, y = lon, z = alt)
                     self.look_at_goal(entity_id, goal)
-                    self._actions['LOOK_AT'].remove(elm)
+                    # self._actions['LOOK_AT'].remove(elm)
         for act in self._actions['ATTACK']:
             if len(act) > 0:
                 for elm in act:
-                    entity_id = elm.popitem()[0]  # get key of dictionary
+                    #entity_id = elm.popitem()[0]  # get key of dictionary
+                    entity_id=elm
                     goal = PointStamped()
-                    goal.point = elm[entity_id]
+                    lon,lat,alt = act[entity_id][0].toLongLatAlt()
+                    goal.point = Point(x = lat, y = lon, z = alt)
                     self.attack_goal(entity_id, goal)
-                    self._actions['ATTACK'].remove(elm)
+
         for act in self._actions['TAKE_PATH']:
             if len(act) > 0:
                 for elm in act:
-                    entity_id = elm.popitem()[0]  # get key of dictionary
-                    path_name = elm[entity_id][0]
+                    entity_id = elm
+                    # entity_id = elm.popitem()[0]  # get key of dictionary
+                    path_name = act[entity_id][0]
                     path = OPath()
                     path.name = path_name
                     # Here goal is Point
-                    goal_point = elm[entity_id][1]
+                    lon, lat, alt = act[entity_id][1].toLongLatAlt()
+                    goal_point = Point(x = lat, y = lon, z = alt)
                     self.take_goal_path(entity_id, path, goal_point)
-                    self._actions['TAKE_PATH'].remove(elm)
+                    # self._actions['TAKE_PATH'].remove(elm)
 
     def fill_straight(self, action_type, entity_id, parameter):
         # Parameter is a tupple
