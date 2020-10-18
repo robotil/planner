@@ -213,9 +213,23 @@ class PlannerEnv(gym.Env):
 
     def thread_ros(self):
         print("Starting thread of ros threads")
-        executor = MultiThreadedExecutor(num_threads=4)
-        executor.add_node(self.node)
-        executor.spin()
+        # executor = MultiThreadedExecutor(num_threads=4)
+        # executor.add_node(self.node)
+        # executor.spin()
+        # When we will be solid:
+        try:
+            executor = MultiThreadedExecutor(num_threads=4)
+            executor.add_node(self.node)
+            try:
+                executor.spin()
+            except KeyboardInterrupt:
+                print('server stopped cleanly')
+            finally:
+                executor.shutdown()
+                self.node.destroy_node()
+        finally:
+            print("nothing")
+
 
     # entity1 = {'Entity:Suicide'}
     # entity2 = {'Entity:Drone'}
