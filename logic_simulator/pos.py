@@ -5,24 +5,26 @@ from pyproj import Proj
 class Pos:
     EPSILON_DISTANCE = 0.1
     old_school = False
-    ZoneNo = "31"
-    myProjPsik = Proj(proj= 'utm', zone=31, ellps='WGS84', preserve_units=False) #Proj("+proj=utm +zone=" + ZoneNo + "+south +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
-    def __init__(self, x=0.0, y=0.0, z=0.0):
+    ZoneNo = "36"
+    myProjPsik = Proj(proj= 'utm', zone=ZoneNo, ellps='WGS84', preserve_units=False) #Proj("+proj=utm +zone=" + ZoneNo + "+south +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+    def __init__(self, lat=0.0, lon=0.0, z=0.0):
         """
             x=LAT, y=LONG, z=ALT
         Returns:
             object:Pos
         """
-        if self.old_school:
-            self._x = float(x)
-            self._y = float(y)
-            self._z = float(z)
-        else:
+        # if self.old_school:
+        #     self._x = float(x)
+        #     self._y = float(y)
+        #     self._z = float(z)
+        # else:
             #myProjPsik = Proj("+proj=utm +zone="+self.ZoneNo+"+south +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
-            self._x, self._y = Pos.myProjPsik(y, x)
-            # my_utm = utm.fromLatLong(x, y, z)
-            # my_point = my_utm.toPoint()
-            self._z = float(z)
+        self._x, self._y = Pos.myProjPsik(lon, lat)
+        self._lon = lon
+        self._lat = lat
+        # my_utm = utm.fromLatLong(x, y, z)
+        # my_point = my_utm.toPoint()
+        self._z = float(z)
 
     @property
     def x(self):
@@ -36,6 +38,15 @@ class Pos:
     def z(self):
         return self._z
 
+    @property
+    def lat(self):
+        return self._lat
+
+    @property
+    def lon(self):
+        return self._lon
+
+
     def equals(self, other) -> bool:
         return self.distance_to(other) <= Pos.EPSILON_DISTANCE
 
@@ -43,6 +54,7 @@ class Pos:
         self._x += vec[0]
         self._y += vec[1]
         self._z += vec[2]
+        self._lon, self._lat, _ = self.toLongLatAlt()
 
     def distance_to(self, other) -> float:
         return np.linalg.norm(np.array([self.x, self.y, self.z]) - np.array([other.x, other.y, other.z]))
@@ -55,6 +67,7 @@ class Pos:
         return "({X},{Y},{Z})".format(X=self.x, Y=self.y, Z=self.z)
 
     def toLongLatAlt(self):
+        # long, lat = Pos.myProjPsik(self._x, self._y, inverse=True)
         long, lat = Pos.myProjPsik(self._x, self._y, inverse=True)
         alt = self._z
         return long, lat, alt

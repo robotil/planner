@@ -43,7 +43,7 @@ def pos_to_point(pos: Pos) -> Point:
 
 
 class PlannerEnv(gym.Env):
-    MAX_STEPS = 200
+    MAX_STEPS = 50
     STEP_REWARD = 1 / MAX_STEPS
     FINAL_REWARD = 1.0
     ENEMY_POS_2 = Point(x=29.999796, y=33.0004159, z=0.0447149366)
@@ -57,17 +57,21 @@ class PlannerEnv(gym.Env):
             self.is_alive = True
             # self.is_alive = msg.is_alive
             self.id = msg.id
+            self._pos = Pos()
+
 
         def update(self, n_enn):
             self.cep = n_enn.cep
             # self.gpoint = Point(x=40.0, y=-23.0, z=0.044715006)
             self.gpoint = n_enn.gpoint
+            self._pos = point_to_pos(n_enn.gpoint)
             self.priority = n_enn.priority
             self.tclass = n_enn.tclass
             self.is_alive = n_enn.is_alive
 
         @property
         def pos(self):
+
             return point_to_pos(self.gpoint)
 
     class Entity:
@@ -79,16 +83,19 @@ class PlannerEnv(gym.Env):
             self.imu = Imu()
             self.health = KeyValue()
             self.twist = Twist()
+            self._pos = Pos()
 
         @property
         def pos(self):
-            return point_to_pos(self.gpoint)
+            return self._pos
+            # return point_to_pos(self.gpoint)
 
         def update_desc(self, n_ent):
             self.diagstatus = n_ent.diagstatus
 
         def update_gpose(self, n_pose):
-            self.gpoint = n_pose
+            self.gpoint = Point(x=n_pose.y, y=n_pose.x, z=n_pose.z)
+            self._pos = point_to_pos(self.gpoint)
 
         def update_imu(self, n_imu):
             self.imu = n_imu

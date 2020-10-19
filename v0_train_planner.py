@@ -78,25 +78,30 @@ lg_ugv.paths = {
               Pos(29.9993341, 33.0001884, -0.180931998),
               Pos(29.9993667, 33.0002117, -0.18193179)
               ],
-    'Path2': [Pos(29.9993825, 33.0002122, -0.390682418), 
-              Pos(29.9995118, 33.0002082, -0.390672229), 
-              Pos(29.9995114, 33.0002533, -0.390669329), 
-              Pos(29.999509, 33.0002783, -0.00499354924) 
+    'Path2': [Pos(29.9993825, 33.0002122, -0.390682418),
+              Pos(29.9995118, 33.0002082, -0.390672229),
+              Pos(29.9995114, 33.0002533, -0.390669329),
+              Pos(29.999509, 33.0002783, -0.00499354924)
               ]
 }
 
 UGV_START_POS = Pos(29.996738, 32.9995218, 1.01453949)
 SENSOR_DRONE_START_POS = Pos(29.9967071, 32.9994369, 2.16229518)
 SUICIDE_DRONE_START_POS = Pos(29.9966709, 32.9994617, 2.12602784)
-NORTH_WEST_SUICIDE =    Pos(29.999815, 33.0008424, 21.0201285)  #Suicide2
-NORTH_EAST_SUICIDE =    Pos(29.9993852, 33.0008575, 20.5126056) #Suicide1
-NORTH_EAST_OBSERVER =   Pos( -0.000043,0.000952, 23)              # Pos(106.0, -5.0, 23.7457948) -4.5096938076499695e-05,   -1.4877944506832277
+NORTH_WEST_SUICIDE = Pos(29.999815, 33.0008424, 21.0201285)  # Suicide2
+NORTH_EAST_SUICIDE = Pos(29.9993852, 33.0008575, 20.5126056)  # Suicide1
+NORTH_EAST_OBSERVER = Pos(-0.000043, 0.000952,
+                          23)  # Pos(106.0, -5.0, 23.7457948) -4.5096938076499695e-05,   -1.4877944506832277
 # SOUTH_WEST = Pos(400.0, 200.0, 30.0)
-SOUTH_EAST =        Pos(-1.487669025086678, -0.0009019389175458873, 25.4169388)   # Pos(120.0, -100.0, 25.4169388)    -0.0009019389175458873, -1.487669025086678
-WEST_WINDOW_POS =   Pos(29.9994918, 33.0004458,10.015047)     # Window1
-NORTH_WINDOW_POS =  Pos(-1.4883230321921168, -0.0004239109088718295, 3.4749414)      # Pos(47.0, -47.0, 3.4749414)      -0.0004239109088718295, -1.4883230321921168
-SOUTH_WINDOW_POS =  Pos(-1.4883140732526847, -0.0005231241067742462, 3.47494173)     # Pos(48.0, -58.0, 3.47494173)     -0.0005231241067742462, -1.4883140732526847
-EAST_WINDOW_POS =   Pos(-1.4882871962293, -0.0005050853631960761, 10.0)           # Pos(51.0, -56.0, 10.0)           -0.0005050853631960761, -1.4882871962293
+SOUTH_EAST = Pos(-1.487669025086678, -0.0009019389175458873,
+                 25.4169388)  # Pos(120.0, -100.0, 25.4169388)    -0.0009019389175458873, -1.487669025086678
+WEST_WINDOW_POS = Pos(29.9994918, 33.0004458, 10.015047)  # Window1
+NORTH_WINDOW_POS = Pos(-1.4883230321921168, -0.0004239109088718295,
+                       3.4749414)  # Pos(47.0, -47.0, 3.4749414)      -0.0004239109088718295, -1.4883230321921168
+SOUTH_WINDOW_POS = Pos(-1.4883140732526847, -0.0005231241067742462,
+                       3.47494173)  # Pos(48.0, -58.0, 3.47494173)     -0.0005231241067742462, -1.4883140732526847
+EAST_WINDOW_POS = Pos(-1.4882871962293, -0.0005050853631960761,
+                      10.0)  # Pos(51.0, -56.0, 10.0)           -0.0005050853631960761, -1.4882871962293
 
 PATH_ID = 'Path1'
 SOUTH_WEST_UGV_POS = lg_ugv.paths[PATH_ID][-1]
@@ -108,6 +113,30 @@ OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
 
 ENEMY_POS = Pos(29.999796, 33.0004159, 0.0447149366)
 
+
+def populate_positions(positions_dict) :
+
+    global UGV_START_POS, SENSOR_DRONE_START_POS, SUICIDE_DRONE_START_POS, NORTH_WEST_SUICIDE
+    global NORTH_EAST_SUICIDE, NORTH_EAST_OBSERVER, SOUTH_EAST, WEST_WINDOW_POS
+    global NORTH_WINDOW_POS, SOUTH_WINDOW_POS, EAST_WINDOW_POS, SUICIDE_WPS, OBSERVER_WPS
+
+    lg_ugv.paths['Path1'] = positions_dict['Path1']
+    lg_ugv.paths['Path2'] = positions_dict['Path2']
+    UGV_START_POS = lg_ugv.paths['Path1'][0]
+    SENSOR_DRONE_START_POS = lg_ugv.paths['Path1'][0]
+    SUICIDE_DRONE_START_POS =  SENSOR_DRONE_START_POS
+    NORTH_WEST_SUICIDE =    positions_dict['Waypoint 59']
+
+    NORTH_EAST_SUICIDE = positions_dict['Waypoint 77']
+    NORTH_EAST_OBSERVER = positions_dict['Waypoint 77']
+    SOUTH_EAST = positions_dict['Waypoint 79']
+    WEST_WINDOW_POS = positions_dict['Window1']
+
+    NORTH_WINDOW_POS = positions_dict['House3']
+    SOUTH_WINDOW_POS = positions_dict['House1']
+    EAST_WINDOW_POS  = positions_dict['House2']
+    SUICIDE_WPS = [NORTH_WEST_SUICIDE, NORTH_EAST_SUICIDE]
+    OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
 
 def dist2d(one, two):
     return math.sqrt((one.x - two.x) ** 2.0 + (one.y - two.y) ** 2.0)
@@ -188,7 +217,7 @@ def line_of_sight_to_enemy(entities):
 
 
 def is_entity_positioned(entity, pos):
-    MINMUM_DISTANCE = 6.0
+    MINMUM_DISTANCE = 10.0
     return entity.pos.distance_to(pos) < MINMUM_DISTANCE
 
 
@@ -232,12 +261,17 @@ def run_logical_sim(env, is_logical):
     # x = threading.Thread(target=populate, args=())
     # logging.info("Before running thread")
     # x.start()
+    
+    global UGV_START_POS, SENSOR_DRONE_START_POS, SUICIDE_DRONE_START_POS, NORTH_WEST_SUICIDE
+    global NORTH_EAST_SUICIDE, NORTH_EAST_OBSERVER, SOUTH_EAST, WEST_WINDOW_POS
+    global NORTH_WINDOW_POS, SOUTH_WINDOW_POS, EAST_WINDOW_POS
+
     obs = env.reset()
 
     while not bool(obs['enemies']):
         continue
 
-    logging.debug('enemies found! Start simple_building_ambush')
+    logging.info('enemies found! Start simple_building_ambush')
 
     # Since pre-defined scenario, let's get all the entities
     # Returns logic env and entities if is_logical==True
@@ -249,7 +283,7 @@ def run_logical_sim(env, is_logical):
     step, start_ambush_step, stimulation_1_step, stimulation_2_step, plan_index, num_of_dead, num_of_lost_devices = \
         0, 0, 0, 0, 0, 0, 0
     done, all_entities_positioned, scenario_completed, move_to_indication_target_commanded, gate_pos_commanded, \
-                                                        plan_phase_commanded = False, False, False, False, False, False
+    plan_phase_commanded, attack2_commanded = False, False, False, False, False, False, False
     reason = ""
     while not done:
         step += 1
@@ -275,7 +309,8 @@ def run_logical_sim(env, is_logical):
 
         else:
             # AMBUSH ON INDICATION TARGET
-            plan_index, stimulation_1_step, stimulation_2_step, gate_pos_commanded, plan_phase_commanded, start_ambush_step = ambush_on_indication_target( \
+            plan_index, stimulation_1_step, stimulation_2_step, gate_pos_commanded, plan_phase_commanded, start_ambush_step, attack2_commanded \
+                = ambush_on_indication_target( \
                 action_list, sensor_drone,
                 suicide_drone, ugv,
                 plan_index,
@@ -283,11 +318,12 @@ def run_logical_sim(env, is_logical):
                 stimulation_1_step,
                 stimulation_2_step,
                 gate_pos_commanded,
-                plan_phase_commanded)
+                plan_phase_commanded,
+                attack2_commanded)
 
         # Execute Actions in simulation
         obs, reward, done, _ = sim_env.step(action_list)
-        logging.debug('obs = {}, reward = {}, done = {}'.format(obs, reward, done))
+        logging.debug('step {}: obs = {}, reward = {}, done = {}'.format(step, obs, reward, done))
         sim_env.render()
 
         # DONE LOGIC
@@ -360,7 +396,7 @@ def attack_enemy(action_list, entities_with_los_to_enemy, log_scd, log_ugv):
 
 
 def ambush_on_indication_target(action_list, log_drn, log_scd, log_ugv, plan_index, start_ambush_step, step,
-                                stimulation_1_step, stimulation_2_step, gate_pos_commanded, move_commanded):
+                                stimulation_1_step, stimulation_2_step, gate_pos_commanded, move_commanded, attack2_commanded):
     if start_ambush_step == 0:
         start_ambush_step = step
         logging.info('step {} all entities positioned... start ambush phase'.format(step))
@@ -369,24 +405,24 @@ def ambush_on_indication_target(action_list, log_drn, log_scd, log_ugv, plan_ind
         if stimulation_1_step == 0:
             stimulation_1_step = step
             logging.info('step {} stimulation 1 phase'.format(step))
-        # ugv.attack(WEST_WINDOW_POS)
-        add_action(action_list, log_ugv, 'ATTACK', (WEST_WINDOW_POS,))
+            # ugv.attack(WEST_WINDOW_POS)
+            add_action(action_list, log_ugv, 'ATTACK', (WEST_WINDOW_POS,))
     elif step > start_ambush_step + TIME_TO_STIMULATE_2:
         # STIMULATION 2
-        # ugv.goto(PATH_ID, GATE_POS)
         if stimulation_2_step == 0:
             stimulation_2_step = step
             logging.info('step {} stimulation 2 phase'.format(step))
-        if is_entity_positioned(log_ugv, GATE_POS):
+        if not attack2_commanded and is_entity_positioned(log_ugv, GATE_POS):
             # ugv.attack(WEST_WINDOW_POS)
             add_action(action_list, log_ugv, 'ATTACK', (WEST_WINDOW_POS,))
+            attack2_commanded = True
         else:
             if not gate_pos_commanded:
                 add_action(action_list, log_ugv, 'TAKE_PATH', ('Path2', GATE_POS))
                 gate_pos_commanded = True
     plan_index, move_commanded = order_drones_movement(action_list, log_scd, log_drn, plan_index, move_commanded)
     order_drones_look_at(action_list, log_scd, log_drn)
-    return plan_index, stimulation_1_step, stimulation_2_step, gate_pos_commanded, move_commanded, start_ambush_step
+    return plan_index, stimulation_1_step, stimulation_2_step, gate_pos_commanded, move_commanded, start_ambush_step, attack2_commanded
 
 
 def move_to_indication_target(action_list, all_entities_positioned, log_drn, log_scd, log_ugv):
@@ -617,7 +653,7 @@ def play(save_dir, env):
 
     at_suicide1 = Pos(29.9993852, 33.0008575, 20.5126056)
     at_suicide2 = Pos(29.999815, 33.0008424, 21.0201285)
-#    at_suicide3 = Pos(x=-0.000118638, y=0.000438844, z=19.8076561)
+    #    at_suicide3 = Pos(x=-0.000118638, y=0.000438844, z=19.8076561)
 
     at_point1 = Point(x=29.9993667, y=33.0002117, z=-0.18193179)
     at_point2 = Point(x=29.9995096, y=33.0002783, z=-0.00499354924)
@@ -789,8 +825,39 @@ def add_arguments(parser):
     #                     help='Optional keyword argument to pass to the env constructor')
 
 
+def string_positions_list(str_list):
+    l = len(str_list)
+    assert l % 3 == 0
+    positions = []
+    for i in range(int(l / 3)):
+        positions.append(Pos(float(str_list[i * 3]), float(str_list[i * 3 + 1]), float(str_list[i * 3 + 2])))
+    return positions
+
+
+def read_positions():
+    import csv
+
+    positions_dict = {}
+    irrelevant_keys = ['Ellipse1']
+    paths_key = ['Path1', 'Path2']
+    with open('PlannerPositions.csv', newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',', quotechar='|')
+        next(reader)
+        for row in reader:
+            key = row[0]
+            if key not in irrelevant_keys:
+                positions_dict[row[0]] = Pos(
+                    float(row[5]), float(row[6]), float(row[7])) if key not in paths_key else string_positions_list(
+                    [field for field in row[5:] if bool(field)])
+
+    return positions_dict
+
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     add_arguments(parser)
     args = parser.parse_args()
+    positions_dict = read_positions()
+    populate_positions(positions_dict)
     main(args)
