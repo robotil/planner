@@ -32,7 +32,7 @@ def check_line_of_sight(one, two):
     future = line_of_sight_cli.call_async(req)
     rclpy.spin_until_future_complete(node, future)
     if future.result() is not None:
-        node.get_logger().info('Result of check_line_of_sight_request: %s' % future.result().is_los.__str__())
+        node.get_logger().debug('Result of check_line_of_sight_request: %s' % future.result().is_los.__str__())
         res = future.result().is_los
     else:
         node.get_logger().error('Exception while calling service: %r' % future.exception())
@@ -64,7 +64,7 @@ def get_all_possible_ways(entityid, target):
     future = get_all_possible_ways_cli.call_async(req)
     rclpy.spin_until_future_complete(node, future)
     if future.result() is not None:
-        node.get_logger().info('Result of check_line_of_sight_request: %s' % future.result().path.__str__())
+        node.get_logger().debug('Result of get_all_possible_ways: %s' % future.result().path.__str__())
         res = future.result().path
     else:
         node.get_logger().error('Exception while calling service: %r' % future.exception())

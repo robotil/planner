@@ -113,7 +113,6 @@ OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
 
 ENEMY_POS = Pos(29.999796, 33.0004159, 0.0447149366)
 
-
 def populate_positions(positions_dict) :
 
     global UGV_START_POS, SENSOR_DRONE_START_POS, SUICIDE_DRONE_START_POS, NORTH_WEST_SUICIDE
@@ -207,9 +206,20 @@ def populate():
     time.sleep(0.5)
     os.system("scripts/populate-scen-0.bash ")
 
+# global number_of_line_of_sight_true
+# number_of_line_of_sight_true = 0
 
 def line_of_sight(ent, pos):
-    return False  # ent.is_line_of_sight_to(pos)
+    global number_of_line_of_sight_true
+    res = ent.is_line_of_sight_to(pos)
+    if res == True:
+        if number_of_line_of_sight_true < 1500:
+            number_of_line_of_sight_true += 1
+            res = False
+        # else:
+        #     number_of_line_of_sight_true = 50
+        print("For break point:"+ascii(number_of_line_of_sight_true))
+    return res
 
 
 def line_of_sight_to_enemy(entities):
@@ -278,13 +288,15 @@ def run_logical_sim(env, is_logical):
     # planner_env and planner_env entities if is_logical ==False
     sim_env, sensor_drone, suicide_drone, ugv = get_env_and_entities(env, is_logical)
 
-    sim_env.reset()
+    # redundant - sim_env.reset()
 
     step, start_ambush_step, stimulation_1_step, stimulation_2_step, plan_index, num_of_dead, num_of_lost_devices = \
         0, 0, 0, 0, 0, 0, 0
     done, all_entities_positioned, scenario_completed, move_to_indication_target_commanded, gate_pos_commanded, \
     plan_phase_commanded, attack2_commanded = False, False, False, False, False, False, False
     reason = ""
+    global number_of_line_of_sight_true
+    number_of_line_of_sight_true = 0
     while not done:
         step += 1
 

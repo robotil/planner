@@ -144,7 +144,7 @@ class PlannerEnv(gym.Env):
         if not res:
             self.entities.append(a)
 
-        self.node.get_logger().info('Received: "%s"' % msg)
+        self.node.get_logger().debug('Received: "%s"' % msg)
 
     def enemy_description_callback(self, msg):
         a = self.Enemy(msg)
@@ -156,7 +156,7 @@ class PlannerEnv(gym.Env):
                 break
         if not res:
             self.enemies.append(a)
-        self.node.get_logger().info('Received: "%s"' % msg)
+        self.node.get_logger().debug('Received: "%s"' % msg)
 
     def entity_imu_callback(self, msg):
         this_entity = self.get_entity(msg.id)
@@ -230,8 +230,10 @@ class PlannerEnv(gym.Env):
             try:
                 executor.spin()
             except KeyboardInterrupt:
+                act_on_simulation(ascii(STOP))
                 print('server stopped cleanly')
             finally:
+                act_on_simulation(ascii(STOP))
                 executor.shutdown()
                 self.node.destroy_node()
         finally:
@@ -251,8 +253,11 @@ class PlannerEnv(gym.Env):
             match_los[this_enemy.id] = []
             for entity in self.entities:
                 two = entity.gpoint
-                if check_line_of_sight(one, two):
-                    match_los[this_enemy.id].append(entity.id)
+                try:
+                    if check_line_of_sight(one, two):
+                        match_los[this_enemy.id].append(entity.id)
+                except KeyboardInterrupt:
+                    act_on_simulation(ascii(STOP))
         return match_los
 
     def __init__(self):
@@ -438,14 +443,15 @@ class PlannerEnv(gym.Env):
         # self._obs = {'Entities':self.entities, 'Enemies':self.ennemies
         #
         # threshold = 7.5
-        threshold = 0.5
+        threshold = 0.0
         num_of_enemies = len(self.enemies)
         num_of_dead_enemies = 0
         for enemy in self.enemies:
             if not enemy.is_alive:
                 num_of_dead_enemies = num_of_dead_enemies + 1
 
-        if num_of_dead_enemies / num_of_enemies > threshold:
+        #if num_of_dead_enemies / num_of_enemies > threshold:
+        if num_of_dead_enemies > 0:
             done = True
             reset = 'goal achieved'
             print('----------------', reset, '----------------')
