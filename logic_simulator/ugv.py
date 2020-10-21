@@ -6,10 +6,10 @@ import logging
 
 
 class Ugv(Entity):
-    MAX_ACC_MPS2 = 2.1 * Entity.STEP_TIME * (Entity.STEP_TIME ** 2.0)
-    MAX_DECC_MPS2 = 12.1 * Entity.STEP_TIME * (Entity.STEP_TIME ** 2.0)
+    MAX_ACC_MPS2 = 3.5 * Entity.STEP_TIME * (Entity.STEP_TIME ** 2.0)
+    MAX_DECC_MPS2 = 4 * Entity.STEP_TIME * (Entity.STEP_TIME ** 2.0)
     MAX_YAW_RATE_DEG_SEC = 90.0
-    MAX_SPEED_MPS = 5.5556 * Entity.STEP_TIME  # 20.0 Kmh
+    MAX_SPEED_MPS = 2.78 * Entity.STEP_TIME  # 20.0 Kmh
     MAX_RANGE_OF_VIEW = 10
     FIELD_OF_VIEW = 0.1745  # radians.   approx. 10 deg
 
