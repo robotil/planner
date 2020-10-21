@@ -209,21 +209,21 @@ def populate():
 # global number_of_line_of_sight_true
 # number_of_line_of_sight_true = 0
 
-def line_of_sight(ent, pos):
+def line_of_sight(ent, pos, env):
     global number_of_line_of_sight_true
-    res = ent.is_line_of_sight_to(pos)
+    res = ent.is_line_of_sight_to(pos, env)
     if res == True:
         if number_of_line_of_sight_true < 1500:
             number_of_line_of_sight_true += 1
             res = False
         # else:
         #     number_of_line_of_sight_true = 50
-        print("For break point:"+ascii(number_of_line_of_sight_true))
+        print("For delaying:"+ascii(number_of_line_of_sight_true))
     return res
 
 
-def line_of_sight_to_enemy(entities):
-    return [ent for ent in entities if line_of_sight(ent, ENEMY_POS)]
+def line_of_sight_to_enemy(entities, env):
+    return [ent for ent in entities if line_of_sight(ent, ENEMY_POS, env)]
 
 
 def is_entity_positioned(entity, pos):
@@ -277,9 +277,9 @@ def run_logical_sim(env, is_logical):
     global NORTH_WINDOW_POS, SOUTH_WINDOW_POS, EAST_WINDOW_POS
 
     obs = env.reset()
-
-    while not bool(obs['enemies']):
-        continue
+    #
+    # while not bool(obs['enemies']):
+    #     continue
 
     logging.info('enemies found! Start simple_building_ambush')
 
@@ -288,7 +288,7 @@ def run_logical_sim(env, is_logical):
     # planner_env and planner_env entities if is_logical ==False
     sim_env, sensor_drone, suicide_drone, ugv = get_env_and_entities(env, is_logical)
 
-    # redundant - sim_env.reset()
+    sim_env.reset()
 
     step, start_ambush_step, stimulation_1_step, stimulation_2_step, plan_index, num_of_dead, num_of_lost_devices = \
         0, 0, 0, 0, 0, 0, 0
@@ -299,12 +299,15 @@ def run_logical_sim(env, is_logical):
     number_of_line_of_sight_true = 0
     while not done:
         step += 1
+        # ZZZZZZZZZZZZ
+        # if step ==2:
+        #     done = True
 
         # ACTION LOGIC
         # Reset Actions
         action_list = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
         # List the enemies in line of sight
-        entities_with_los_to_enemy = line_of_sight_to_enemy([suicide_drone, sensor_drone, ugv])
+        entities_with_los_to_enemy = line_of_sight_to_enemy([suicide_drone, sensor_drone, ugv], env)
         if len(entities_with_los_to_enemy) > 0:
             # ENEMY FOUND !!!
             attack_enemy(action_list, entities_with_los_to_enemy, suicide_drone, ugv)
@@ -334,10 +337,11 @@ def run_logical_sim(env, is_logical):
                 attack2_commanded)
 
         # Execute Actions in simulation
+        old_done = done
         obs, reward, done, _ = sim_env.step(action_list)
         logging.debug('step {}: obs = {}, reward = {}, done = {}'.format(step, obs, reward, done))
         sim_env.render()
-
+        done = old_done or done
         # DONE LOGIC
         if done or step > sim_env.MAX_STEPS:
             reason = "Logical Simulation" if done else "Step is " + str(step)
@@ -716,7 +720,9 @@ def play(save_dir, env):
         if session_num > 10000:
             end_of_session = True
         # Print reward
+        end_of_session = True
         print(curr_reward, curr_step, curr_num_of_dead, curr_num_of_lost_devices, curr_scenario_completed)
+        exit(1)
 
 
 # For Logical Simulation

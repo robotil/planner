@@ -23,6 +23,7 @@ from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, Enem
 from logic_simulator.pos import Pos
 from planner.sim_admin import check_state_simulation, act_on_simulation
 from planner.sim_services import check_line_of_sight, get_all_possible_ways
+from planner_msgs.srv import CheckLOS
 from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
 
 STOP = 0
@@ -106,8 +107,8 @@ class PlannerEnv(gym.Env):
         def update_twist(self, n_twist):
             self.health = n_twist
 
-        def is_line_of_sight_to(self, pos):
-            return check_line_of_sight(pos_to_point(self.pos), pos_to_point(pos))
+        def is_line_of_sight_to(self, pos , PlannerEnv):
+            return PlannerEnv.check_line_of_sight_request(pos_to_point(self.pos), pos_to_point(pos))
 
     def get_entity(self, id):
         found = None
@@ -228,17 +229,19 @@ class PlannerEnv(gym.Env):
             executor = MultiThreadedExecutor(num_threads=4)
             executor.add_node(self.node)
             try:
-                executor.spin()
+                self.our_spin()
+                #executor.spin()
             except KeyboardInterrupt:
                 act_on_simulation(ascii(STOP))
                 print('server stopped cleanly')
+            else:
+                pass
             finally:
                 act_on_simulation(ascii(STOP))
                 executor.shutdown()
                 self.node.destroy_node()
         finally:
             print("nothing")
-
 
     # entity1 = {'Entity:Suicide'}
     # entity2 = {'Entity:Drone'}
@@ -254,11 +257,64 @@ class PlannerEnv(gym.Env):
             for entity in self.entities:
                 two = entity.gpoint
                 try:
-                    if check_line_of_sight(one, two):
+                    if self.check_line_of_sight_request(one, two):
                         match_los[this_enemy.id].append(entity.id)
                 except KeyboardInterrupt:
                     act_on_simulation(ascii(STOP))
         return match_los
+
+    # def check_line_of_sight(self, one, two):
+    #     """ check_line_of_sight
+    #     Args:
+    #         one: geometry_msgs/Point
+    #         two: geometry_msgs/Point
+    #
+    #     Returns:
+    #         Boolean
+    #            True if in line of sight
+    #            False if not
+    #     """
+    #     #DEBUG = 10 ERROR = 40 FATAL = 50 INFO = 20 UNSET = 0 WARN = 30
+    #     rclpy.node.get_logger(self.node.get_name()).set_level(rclpy.logging.LoggingSeverity.WARN)
+    #     res = False
+    #     start3 = time.time()
+    #     # node.get_logger().debug("Client Creation:" + ascii(start3 - start2))
+    #     while not self.line_of_sight_cli.wait_for_service(timeout_sec=1.0):
+    #         print('CheckLOS not available, waiting again...')
+    #     start4 = time.time()
+    #     self.node.get_logger().debug("Connect Server:" + ascii(start4 - start3))
+    #     req = CheckLOS.Request()
+    #     start5 = time.time()
+    #     self.node.get_logger().debug("Create Request:" + ascii(start5 - start4))
+    #     req.one = one
+    #     req.two = two
+    #     future = self.line_of_sight_cli.call_async(req)
+    #     start6 = time.time()
+    #     self.node.get_logger().debug("Async Call:" + ascii(start6 - start5))
+    #     rclpy.spin_until_future_complete(self.node, future, timeout_sec=1.0 )
+    #     start7 = time.time()
+    #     self.node.get_logger().debug("Wait Answer:" + ascii(start7 - start6))
+    #     if future.result() is not None:
+    #         right_now=time.time()
+    #         call_duration = right_now - start7
+    #         self.node.get_logger().warning(
+    #             'Duration: '+ ascii(call_duration) + ' Result of check_line_of_sight: '+ future.result().is_los.__str__())
+    #         res = future.result().is_los
+    #     else:
+    #         right_now = time.time()
+    #         call_duration = right_now - start7
+    #         self.node.get_logger().error('Duration:'+ascii(call_duration)+' Exception los ('+one.__str__()+ " versus " + two.__str__()+') service: %r' % future.exception())
+    #     start8 = time.time()
+    #     self.node.get_logger().debug("Got answer:" + ascii(start8 - start7))
+    #     return res
+
+    def check_line_of_sight_request(self, one, two):
+        self.ch_los_req = CheckLOS.Request()
+        while not self.line_of_sight_cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('service CheckLOS not available, waiting ...')
+        self.ch_los_req.one = one
+        self.ch_los_req.two = two
+        self.client_futures.append(self.line_of_sight_cli.call_async(self.ch_los_req))
 
     def __init__(self):
         super(PlannerEnv, self).__init__()
@@ -315,15 +371,13 @@ class PlannerEnv(gym.Env):
         self.takePathPub = self.node.create_publisher(SPath, '/entity/takepath', 10)
         self.takeGoalPathPub = self.node.create_publisher(SGoalAndPath, '/entity/followpath/goal', 10)
         self.num_of_dead_enemies = 0
+        self.line_of_sight_cli = self.node.create_client(CheckLOS, 'check_line_of_sight')
+        self.client_futures = []
 
-        #       self.node.create_rate(10.0)
-        #        rclpy.spin(self.node)
-        #         executor = MultiThreadedExecutor(num_threads=4)
-        #         executor.add_node(self.node)
-        #         executor.spin()
         x = threading.Thread(target=self.thread_ros, args=())
         print("Before running thread")
         x.start()
+
 
     def render(self, mode='human'):
         pass
@@ -337,7 +391,7 @@ class PlannerEnv(gym.Env):
     def update_state(self):
         entities = self.entities
         enemies = self.enemies
-        line_of_sight_mesh = self.compute_all_los()
+        line_of_sight_mesh = {} #self.compute_all_los()
         # Line of sight?
         # Different path
         obs = {'entities': entities, 'enemies': enemies, 'los_mesh': line_of_sight_mesh}
@@ -356,8 +410,11 @@ class PlannerEnv(gym.Env):
 
         #Restart simulation
         ret = act_on_simulation(ascii(START))
-        if ret != START:
-            print("Couldn't start the simulation")
+        # while (ret != START):
+        #     print("Couldn't start the simulation")
+        #     ret = act_on_simulation(ascii(START))
+        #     #self.simOn = False
+        # else:
         ret = act_on_simulation(ascii(RUN))
         self.simOn = True
 
@@ -573,3 +630,25 @@ class PlannerEnv(gym.Env):
             ex1 = {'UGV': (goal)}
             self._actions['ATTACK'].append(ex1)
             return True
+
+    def our_spin(self):
+        while rclpy.ok():
+            rclpy.spin_once(self.node, self.node.executor)
+            incomplete_futures = []
+            for f in self.client_futures:
+                if f.done():
+                    res = f.result()
+
+                    if type(res).__name__=='ActGeneralAdmin_Response':
+                        print("ActGeneralAdmin_Response: "+res.resulting_status.__str__())
+                        res_int = int.from_bytes(res.resulting_status, "big")
+                    if type(res).__name__=='StateGeneralAdmin_Response':
+                        print("StateGeneralAdmin_Response: " + res.resulting_status.__str__())
+                        res_int = int.from_bytes(res.resulting_status, "big")
+                    if type(res).__name__=='CheckLOS_Response':
+                        print("CheckLOS_Response: " + res.is_los.__str__())
+                    if type(res).__name__=='AllPathEntityToTarget_Response':
+                        print("AllPathEntityToTarget_Response: " + res.path.__str__())
+                else:
+                    incomplete_futures.append(f)
+            self.client_futures = incomplete_futures

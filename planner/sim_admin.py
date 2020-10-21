@@ -36,13 +36,15 @@ def act_on_simulation(args="0"):
     req = ActGeneralAdmin.Request()
     req.admin = bytes([command])
     future = genAdminCli.call_async(req)
-    rclpy.spin_until_future_complete(node, future)
+    rclpy.spin_until_future_complete(node, future, timeout_sec=3.0)
     if future.result() is not None:
         node.get_logger().info('Result of act_on_simulation: %s' % future.result().resulting_status.__str__())
         res_int = int.from_bytes(future.result().resulting_status, "big")
     else:
         node.get_logger().error('Exception while calling service: %r' % future.exception())
+        res_int = 0
 
+    node.destroy_node()
     return res_int
 
 if __name__ == '__main__':

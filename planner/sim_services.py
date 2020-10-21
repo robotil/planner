@@ -30,18 +30,39 @@ def check_line_of_sight(one, two):
     req.one = one
     req.two = two
     future = line_of_sight_cli.call_async(req)
-    rclpy.spin_until_future_complete(node, future)
+    rclpy.spin_until_future_complete(node, future, timeout_sec=1.0)
     if future.result() is not None:
         node.get_logger().debug('Result of check_line_of_sight_request: %s' % future.result().is_los.__str__())
         res = future.result().is_los
     else:
-        node.get_logger().error('Exception while calling service: %r' % future.exception())
+        node.get_logger().error('Exception while calling los (' + one.__str__() +" versus "+ two.__str__() + ') service: %r' % future.exception())
+
 
     node.destroy_node()
 
     return res
 
+def our_spin(self):
+    while rclpy.ok():
+        rclpy.spin_once(self)
+        incomplete_futures = []
+        for f in self.client_futures:
+            if f.done():
+                res = f.result()
 
+                if type(res).__name__=='ActGeneralAdmin_Response':
+                    print("ActGeneralAdmin_Response: "+res.resulting_status.__str__())
+                    res_int = int.from_bytes(res.resulting_status, "big")
+                if type(res).__name__=='StateGeneralAdmin_Response':
+                    print("StateGeneralAdmin_Response: " + res.resulting_status.__str__())
+                    res_int = int.from_bytes(res.resulting_status, "big")
+                if type(res).__name__=='CheckLOS_Response':
+                    print("CheckLOS_Response: " + res.is_los.__str__())
+                if type(res).__name__=='AllPathEntityToTarget_Response':
+                    print("AllPathEntityToTarget_Response: " + res.path.__str__())
+            else:
+                incomplete_futures.append(f)
+        self.client_futures = incomplete_futures
 # get_all_possible_ways
 # Args:
 #    entityid=String
@@ -62,7 +83,7 @@ def get_all_possible_ways(entityid, target):
     req.entityid = entityid
     req.target = target
     future = get_all_possible_ways_cli.call_async(req)
-    rclpy.spin_until_future_complete(node, future)
+    rclpy.spin_until_future_complete(node, future, timeout_sec=1.0)
     if future.result() is not None:
         node.get_logger().debug('Result of get_all_possible_ways: %s' % future.result().path.__str__())
         res = future.result().path
