@@ -43,7 +43,7 @@ def pos_to_point(pos: Pos) -> Point:
 
 
 class PlannerEnv(gym.Env):
-    MAX_STEPS = 50
+    MAX_STEPS = 100
     STEP_REWARD = 1 / MAX_STEPS
     FINAL_REWARD = 1.0
     ENEMY_POS_2 = Point(x=29.999796, y=33.0004159, z=0.0447149366)
@@ -51,10 +51,10 @@ class PlannerEnv(gym.Env):
         def __init__(self, msg):
             self.cep = msg.cep
             # self.gpoint = msg.gpose # self.gpoint = Point(x=-0.000204155, y=0.00035984, z=0.044715006)
-            self.gpoint = PlannerEnv.ENEMY_POS_2 #Point(x=40.0, y=-23.0, z=0.044715006)
+            self.gpoint = msg.gpose #Point(x=40.0, y=-23.0, z=0.044715006)
             self.priority = msg.priority
             self.tclass = msg.tclass
-            self.is_alive = True
+            self.is_alive = msg.is_alive
             # self.is_alive = msg.is_alive
             self.id = msg.id
             self._pos = Pos()
@@ -71,8 +71,7 @@ class PlannerEnv(gym.Env):
 
         @property
         def pos(self):
-
-            return point_to_pos(self.gpoint)
+            return self._pos
 
     class Entity:
         def __init__(self, msg):
@@ -84,6 +83,11 @@ class PlannerEnv(gym.Env):
             self.health = KeyValue()
             self.twist = Twist()
             self._pos = Pos()
+            self._los_enemies = []
+
+        @property
+        def los_enemies(self):
+            return self._los_enemies
 
         @property
         def pos(self):
@@ -107,7 +111,20 @@ class PlannerEnv(gym.Env):
             self.health = n_twist
 
         def is_line_of_sight_to(self, pos):
-            return check_line_of_sight(pos_to_point(self.pos), pos_to_point(pos))
+            res = False
+            for enm in self._los_enemies:
+                if enm.pos.equals(pos):
+                    res = True
+                    break
+            return res
+
+        def is_los_enemy(self, enemy):
+            res = False
+            for enm in self._los_enemies:
+                if enm.id == enemy.id:
+                    res = True
+                    break
+            return res
 
     def get_entity(self, id):
         found = None
@@ -212,7 +229,7 @@ class PlannerEnv(gym.Env):
         self.takeGoalPathPub.publish(msg)
 
     def attack_goal(self, entity_id, goal):
-        self.node.get_logger().info('Entity:' + entity_id + " should attack at:" + goal.__str__())
+        self.node.get_logger().info('Entity:' + entity_id + " attack at:" + goal.__str__())
         msg = SGlobalPose()
         msg.gpose = goal
         msg.id = entity_id
@@ -250,12 +267,22 @@ class PlannerEnv(gym.Env):
         for enemy in self.enemies:
             this_enemy = enemy
             one = this_enemy.gpoint
+            onePsik =  Point(x=one.y, y=one.x, z=one.z)
             match_los[this_enemy.id] = []
             for entity in self.entities:
                 two = entity.gpoint
+                twoPsik = Point(x=two.y, y=two.x, z=two.z)
                 try:
+                    start = time.time()
                     if check_line_of_sight(one, two):
                         match_los[this_enemy.id].append(entity.id)
+                        if not entity.is_los_enemy(this_enemy):
+                            if this_enemy.is_alive:
+                                entity._los_enemies.append(this_enemy)
+                    else:
+                        if entity.is_los_enemy(this_enemy):
+                            entity._los_enemies.append(this_enemy)
+                    self.node.get_logger().debug('duration:' + ascii(time.time()-start))
                 except KeyboardInterrupt:
                     act_on_simulation(ascii(STOP))
         return match_los
@@ -500,9 +527,10 @@ class PlannerEnv(gym.Env):
                 for elm in act:
                     #entity_id = elm.popitem()[0]  # get key of dictionary
                     entity_id=elm
+                    self.node.get_logger().info('Entity:' + entity_id + " attack at:" + ascii(act[entity_id][0].x) +", "+ ascii(act[entity_id][0].y) +", " +ascii(act[entity_id][0].z))
                     goal = PointStamped()
                     lon,lat,alt = act[entity_id][0].toLongLatAlt()
-                    goal.point = Point(x = lat, y = lon, z = alt)
+                    goal.point = Point(x = lon, y = lat, z = alt)
                     self.attack_goal(entity_id, goal)
 
         for act in self._actions['TAKE_PATH']:

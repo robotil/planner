@@ -111,10 +111,10 @@ TIME_TO_STIMULATE_2 = LogicSim.MAX_STEPS / 2
 SUICIDE_WPS = [NORTH_WEST_SUICIDE, NORTH_EAST_SUICIDE]
 OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
 
-ENEMY_POS = Pos(29.999796, 33.0004159, 0.0447149366)
 
-def populate_positions(positions_dict) :
+# ENEMY_POS = Pos(29.999796, 33.0004159, 0.0447149366)
 
+def populate_positions(positions_dict):
     global UGV_START_POS, SENSOR_DRONE_START_POS, SUICIDE_DRONE_START_POS, NORTH_WEST_SUICIDE
     global NORTH_EAST_SUICIDE, NORTH_EAST_OBSERVER, SOUTH_EAST, WEST_WINDOW_POS
     global NORTH_WINDOW_POS, SOUTH_WINDOW_POS, EAST_WINDOW_POS, SUICIDE_WPS, OBSERVER_WPS
@@ -123,8 +123,8 @@ def populate_positions(positions_dict) :
     lg_ugv.paths['Path2'] = positions_dict['Path2']
     UGV_START_POS = lg_ugv.paths['Path1'][0]
     SENSOR_DRONE_START_POS = lg_ugv.paths['Path1'][0]
-    SUICIDE_DRONE_START_POS =  SENSOR_DRONE_START_POS
-    NORTH_WEST_SUICIDE =    positions_dict['Waypoint 59']
+    SUICIDE_DRONE_START_POS = SENSOR_DRONE_START_POS
+    NORTH_WEST_SUICIDE = positions_dict['Waypoint 59']
 
     NORTH_EAST_SUICIDE = positions_dict['Waypoint 77']
     NORTH_EAST_OBSERVER = positions_dict['Waypoint 77']
@@ -133,9 +133,10 @@ def populate_positions(positions_dict) :
 
     NORTH_WINDOW_POS = positions_dict['House3']
     SOUTH_WINDOW_POS = positions_dict['House1']
-    EAST_WINDOW_POS  = positions_dict['House2']
+    EAST_WINDOW_POS = positions_dict['House2']
     SUICIDE_WPS = [NORTH_WEST_SUICIDE, NORTH_EAST_SUICIDE]
     OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
+
 
 def dist2d(one, two):
     return math.sqrt((one.x - two.x) ** 2.0 + (one.y - two.y) ** 2.0)
@@ -170,14 +171,14 @@ def compute_reward(rel_diff_step, num_of_dead, num_of_lost_devices, scenario_com
     # With which platform?
     # How long did it take
 
-    total_num_of_enemies = 1
+    total_num_of_enemies = 3
     total_num_of_devices = 3
     if scenario_completed:
         reward = -10
         if num_of_lost_devices != 0:
             reward = reward - 10  # nothing accomplished and we lost a drone!
         return reward  # = 0
-    reward = num_of_dead / total_num_of_enemies - num_of_lost_devices / total_num_of_devices + 0.1 * rel_diff_step
+    reward = (rel_diff_step ) * ( ( num_of_dead / total_num_of_enemies) - 0.1 * (num_of_lost_devices / total_num_of_devices))
     return reward
 
 
@@ -206,24 +207,17 @@ def populate():
     time.sleep(0.5)
     os.system("scripts/populate-scen-0.bash ")
 
+
 # global number_of_line_of_sight_true
 # number_of_line_of_sight_true = 0
 
 def line_of_sight(ent, pos):
-    global number_of_line_of_sight_true
     res = ent.is_line_of_sight_to(pos)
-    if res == True:
-        if number_of_line_of_sight_true < 1500:
-            number_of_line_of_sight_true += 1
-            res = False
-        # else:
-        #     number_of_line_of_sight_true = 50
-        print("For break point:"+ascii(number_of_line_of_sight_true))
     return res
 
 
 def line_of_sight_to_enemy(entities):
-    return [ent for ent in entities if line_of_sight(ent, ENEMY_POS)]
+    return [ent for ent in entities if len(ent.los_enemies) > 0]
 
 
 def is_entity_positioned(entity, pos):
@@ -271,7 +265,7 @@ def run_logical_sim(env, is_logical):
     # x = threading.Thread(target=populate, args=())
     # logging.info("Before running thread")
     # x.start()
-    
+
     global UGV_START_POS, SENSOR_DRONE_START_POS, SUICIDE_DRONE_START_POS, NORTH_WEST_SUICIDE
     global NORTH_EAST_SUICIDE, NORTH_EAST_OBSERVER, SOUTH_EAST, WEST_WINDOW_POS
     global NORTH_WINDOW_POS, SOUTH_WINDOW_POS, EAST_WINDOW_POS
@@ -304,10 +298,13 @@ def run_logical_sim(env, is_logical):
         # Reset Actions
         action_list = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
         # List the enemies in line of sight
-        entities_with_los_to_enemy = line_of_sight_to_enemy([suicide_drone, sensor_drone, ugv])
+        if step < 1:
+            entities_with_los_to_enemy = []
+        else:
+            entities_with_los_to_enemy = line_of_sight_to_enemy([suicide_drone, sensor_drone, ugv])
         if len(entities_with_los_to_enemy) > 0:
             # ENEMY FOUND !!!
-            attack_enemy(action_list, entities_with_los_to_enemy, suicide_drone, ugv)
+            attack_enemy(action_list, entities_with_los_to_enemy, suicide_drone, ugv, sensor_drone)
         elif not all_entities_positioned:
             # MOVE TO INDICATION TARGET
             if not move_to_indication_target_commanded:
@@ -349,7 +346,7 @@ def run_logical_sim(env, is_logical):
     diff_step = sim_env.MAX_STEPS - step + 1
     diff_step = diff_step / sim_env.MAX_STEPS
     this_reward = compute_reward(diff_step, num_of_dead, num_of_lost_devices, scenario_completed)
-    print("LALALALA - Scenario completed: step ", step, " reward ", this_reward, " Done", done, "Reason", reason)
+    logging.info("Scenario completed: step ", step, " reward ", this_reward, " Done", done, "Reason", reason)
     return this_reward, diff_step, num_of_dead, num_of_lost_devices, scenario_completed
 
 
@@ -395,20 +392,32 @@ def get_env_and_entities(env, is_logical):
     return env, drn, scd, ugv
 
 
-def attack_enemy(action_list, entities_with_los_to_enemy, log_scd, log_ugv):
+def attack_enemy(action_list, entities_with_los_to_enemy, log_scd, log_ugv, log_sensor):
+    attacked_enemies = []
+
     if log_ugv in entities_with_los_to_enemy:
         # ugv.attack(ENEMY_POS)
-        add_action(action_list, log_ugv, 'ATTACK', (ENEMY_POS,))
+        for enemy in log_ugv.los_enemies:
+            if enemy.id == "Sniper":
+                attacked_enemies.append(enemy)
+                add_action(action_list, log_ugv, 'ATTACK', (enemy.pos,))
+                print("UGV attack:" + enemy.pos.__str__())
     elif log_scd in entities_with_los_to_enemy:
         # suicide.attack(ENEMY_POS)
-        add_action(action_list, log_scd, 'ATTACK', (ENEMY_POS,))
+        for enemy in [enemy for enemy in log_scd.los_enemy if enemy not in attacked_enemies]:
+            attacked_enemies.append(enemy)
+            add_action(action_list, log_scd, 'ATTACK', (enemy.pos,))
+            print("SUICIDE attack:" + enemy.pos.__str__())
     else:
-        # suicide.goto(ENEMY_POS)
-        add_action(action_list, log_scd, 'MOVE_TO', (ENEMY_POS,))
+        for enemy in [enemy for enemy in log_sensor.los_enemy if enemy not in attacked_enemies]:
+            # suicide.goto(ENEMY_POS)
+            add_action(action_list, log_scd, 'MOVE_TO', (Pos(enemy.pos.x, enemy.pos.y, log_scd.pos.z),))
+            print("DRONE attack:" + enemy.pos.__str__())
 
 
 def ambush_on_indication_target(action_list, log_drn, log_scd, log_ugv, plan_index, start_ambush_step, step,
-                                stimulation_1_step, stimulation_2_step, gate_pos_commanded, move_commanded, attack2_commanded):
+                                stimulation_1_step, stimulation_2_step, gate_pos_commanded, move_commanded,
+                                attack2_commanded):
     if start_ambush_step == 0:
         start_ambush_step = step
         logging.info('step {} all entities positioned... start ambush phase'.format(step))
@@ -863,7 +872,6 @@ def read_positions():
                     [field for field in row[5:] if bool(field)])
 
     return positions_dict
-
 
 
 if __name__ == '__main__':

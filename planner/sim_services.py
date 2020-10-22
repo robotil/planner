@@ -26,11 +26,12 @@ def check_line_of_sight(one, two):
     while not line_of_sight_cli.wait_for_service(timeout_sec=1.0):
         print('CheckLOS not available, waiting again...')
 
+    #print('CheckLOS ok...')
     req = CheckLOS.Request()
     req.one = one
     req.two = two
     future = line_of_sight_cli.call_async(req)
-    rclpy.spin_until_future_complete(node, future)
+    rclpy.spin_until_future_complete(node, future, timeout_sec=1.0)
     if future.result() is not None:
         node.get_logger().debug('Result of check_line_of_sight_request: %s' % future.result().is_los.__str__())
         res = future.result().is_los
