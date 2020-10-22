@@ -331,13 +331,19 @@ def run_logical_sim(env, is_logical):
                 attack2_commanded)
 
         # Execute Actions in simulation
-        obs, reward, done, _ = sim_env.step(action_list)
-        logging.debug('step {}: obs = {}, reward = {}, done = {}'.format(step, obs, reward, done))
-        sim_env.render()
+        try:
+            obs, reward, done, _ = sim_env.step(action_list)
+            logging.debug('step {}: obs = {}, reward = {}, done = {}'.format(step, obs, reward, done))
+            sim_env.render()
+        except RuntimeError:
+            logging.debug('step {}: LOS SERVER DOWN - Rerun the episode'.format(step))
+            done = 1
+            reason='LOS Exception'
 
         # DONE LOGIC
         if done or step > sim_env.MAX_STEPS:
-            reason = "Logical Simulation" if done else "Step is " + str(step)
+            if not reason == 'LOS Exception':
+                reason = "Logical Simulation" if done else "Step is " + str(step)
             num_of_dead += len([enemy for enemy in sim_env.enemies if not enemy.is_alive])
             num_of_lost_devices += len([e for e in sim_env.entities if e.health == 0.0])
             done = True

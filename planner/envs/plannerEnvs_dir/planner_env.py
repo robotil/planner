@@ -274,7 +274,7 @@ class PlannerEnv(gym.Env):
                 twoPsik = Point(x=two.y, y=two.x, z=two.z)
                 try:
                     start = time.time()
-                    if check_line_of_sight(one, two):
+                    if check_line_of_sight(one, twoPsik):
                         match_los[this_enemy.id].append(entity.id)
                         if not entity.is_los_enemy(this_enemy):
                             if this_enemy.is_alive:
@@ -283,6 +283,9 @@ class PlannerEnv(gym.Env):
                         if entity.is_los_enemy(this_enemy):
                             entity._los_enemies.append(this_enemy)
                     self.node.get_logger().debug('duration:' + ascii(time.time()-start))
+                except RuntimeError:
+                    self.node.get_logger().error('Problems with LOS Service... Do Restart Simulation and Planner')
+                    raise
                 except KeyboardInterrupt:
                     act_on_simulation(ascii(STOP))
         return match_los
