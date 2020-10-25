@@ -27,7 +27,7 @@ def check_line_of_sight(one, two):
     while not line_of_sight_cli.wait_for_service(timeout_sec=1.0):
         print('CheckLOS not available, waiting again...')
         count = count+1
-        if count == 21:
+        if count == 10:
             node.destroy_node()
             raise RuntimeError
 

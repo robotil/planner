@@ -267,14 +267,14 @@ class PlannerEnv(gym.Env):
         for enemy in self.enemies:
             this_enemy = enemy
             one = this_enemy.gpoint
-            onePsik =  Point(x=one.y, y=one.x, z=one.z)
+            #onePsik =  Point(x=one.y, y=one.x, z=one.z)
             match_los[this_enemy.id] = []
             for entity in self.entities:
                 two = entity.gpoint
-                twoPsik = Point(x=two.y, y=two.x, z=two.z)
+                #twoPsik = Point(x=two.y, y=two.x, z=two.z)
                 try:
                     start = time.time()
-                    if check_line_of_sight(one, twoPsik):
+                    if check_line_of_sight(one, two):
                         match_los[this_enemy.id].append(entity.id)
                         if not entity.is_los_enemy(this_enemy):
                             if this_enemy.is_alive:
@@ -533,7 +533,7 @@ class PlannerEnv(gym.Env):
                     self.node.get_logger().info('Entity:' + entity_id + " attack at:" + ascii(act[entity_id][0].x) +", "+ ascii(act[entity_id][0].y) +", " +ascii(act[entity_id][0].z))
                     goal = PointStamped()
                     lon,lat,alt = act[entity_id][0].toLongLatAlt()
-                    goal.point = Point(x = lon, y = lat, z = alt)
+                    goal.point = Point(x = lat, y = lon, z = alt)
                     self.attack_goal(entity_id, goal)
 
         for act in self._actions['TAKE_PATH']:

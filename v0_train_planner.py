@@ -161,7 +161,7 @@ def add_action(action_list, action_type, entity_id, parameter):
         add_action_logic(action_list, action_type, entity_id, parameter)
 
 
-def compute_reward(rel_diff_step, num_of_dead, num_of_lost_devices, scenario_completed):
+def compute_reward(rel_diff_step, num_of_dead, num_of_lost_devices):
     """
 
     """
@@ -173,12 +173,12 @@ def compute_reward(rel_diff_step, num_of_dead, num_of_lost_devices, scenario_com
 
     total_num_of_enemies = 3
     total_num_of_devices = 3
-    if scenario_completed:
-        reward = -10
-        if num_of_lost_devices != 0:
-            reward = reward - 10  # nothing accomplished and we lost a drone!
-        return reward  # = 0
-    reward = (rel_diff_step ) * ( ( num_of_dead / total_num_of_enemies) - 0.1 * (num_of_lost_devices / total_num_of_devices))
+    # if scenario_completed:
+    #     reward = -10
+    #     if num_of_lost_devices != 0:
+    #         reward = reward - 10  # nothing accomplished and we lost a drone!
+    #     return reward  # = 0
+    reward = rel_diff_step * ((num_of_dead / total_num_of_enemies) - 0.1 * (num_of_lost_devices / total_num_of_devices))
     return reward
 
 
@@ -286,8 +286,8 @@ def run_logical_sim(env, is_logical):
 
     step, start_ambush_step, stimulation_1_step, stimulation_2_step, plan_index, num_of_dead, num_of_lost_devices = \
         0, 0, 0, 0, 0, 0, 0
-    done, all_entities_positioned, scenario_completed, move_to_indication_target_commanded, gate_pos_commanded, \
-    plan_phase_commanded, attack2_commanded = False, False, False, False, False, False, False
+    done, all_entities_positioned, move_to_indication_target_commanded, gate_pos_commanded, \
+    plan_phase_commanded, attack2_commanded =  False, False, False, False, False, False
     reason = ""
     global number_of_line_of_sight_true
     number_of_line_of_sight_true = 0
@@ -298,7 +298,7 @@ def run_logical_sim(env, is_logical):
         # Reset Actions
         action_list = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
         # List the enemies in line of sight
-        if step < 1:
+        if step < 10:
             entities_with_los_to_enemy = []
         else:
             entities_with_los_to_enemy = line_of_sight_to_enemy([suicide_drone, sensor_drone, ugv])
@@ -351,9 +351,9 @@ def run_logical_sim(env, is_logical):
     # Episode is done
     diff_step = sim_env.MAX_STEPS - step + 1
     diff_step = diff_step / sim_env.MAX_STEPS
-    this_reward = compute_reward(diff_step, num_of_dead, num_of_lost_devices, scenario_completed)
-    logging.info("Scenario completed: step ", step, " reward ", this_reward, " Done", done, "Reason", reason)
-    return this_reward, diff_step, num_of_dead, num_of_lost_devices, scenario_completed
+    this_reward = compute_reward(diff_step, num_of_dead, num_of_lost_devices)
+    logging.info("Scenario completed: step " + ascii(step) + " reward " + ascii(this_reward) + " Done " + ascii(done)+ " Reason "  + reason  )
+    return this_reward, int(diff_step * sim_env.MAX_STEPS), num_of_dead, num_of_lost_devices
 
 
 def get_env_and_entities(env, is_logical):
@@ -717,21 +717,21 @@ def play(save_dir, env):
     while not end_of_session:
         action_list = {'MOVE_TO': [], 'LOOK_AT': [], 'ATTACK': [], 'TAKE_PATH': []}
         print("LALALALA - Starting session: session ", session_num)
-        curr_reward, curr_step, curr_num_of_dead, curr_num_of_lost_devices, curr_scenario_completed = \
+        curr_reward, curr_step, curr_num_of_dead, curr_num_of_lost_devices = \
             run_logical_sim(env, is_logical=False)
         # run_scenario(action_list, at_house1, at_house2, at_point1, at_point2, at_scanner1, at_scanner2, at_scanner3,
         #         at_suicide1, at_suicide2, at_suicide3, at_window1, env, min_dist, start_time_x, start_time_y,
         #         start_time_zz, timer_x_period, timer_y_period, timer_zz_period)
         f = open("results.csv", "a")
         curr_string = datetime.datetime.now().__str__() + "," + curr_reward.__str__() + "," + curr_step.__str__() + "," + curr_num_of_dead.__str__() + \
-                      "," + curr_num_of_lost_devices.__str__() + "," + curr_scenario_completed.__str__() + "\n"
+                      "," + curr_num_of_lost_devices.__str__() + "," + "\n"
         f.write(curr_string)
         f.close()
         session_num += 1
         if session_num > 10000:
             end_of_session = True
         # Print reward
-        print(curr_reward, curr_step, curr_num_of_dead, curr_num_of_lost_devices, curr_scenario_completed)
+        print(curr_reward, curr_step, curr_num_of_dead, curr_num_of_lost_devices)
 
 
 # For Logical Simulation
