@@ -24,7 +24,7 @@ from logic_simulator.pos import Pos
 from planner.sim_admin import check_state_simulation, act_on_simulation
 from planner.sim_services import check_line_of_sight, get_all_possible_ways
 from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
-
+import random
 STOP = 0
 START = 1
 PAUSE = 2
@@ -80,7 +80,7 @@ class PlannerEnv(gym.Env):
             self.diagstatus = msg.diagstatus
             self.gpoint = Point()
             self.imu = Imu()
-            self.health = KeyValue()
+            self.health = {}
             self.twist = Twist()
             self._pos = Pos()
             self._los_enemies = []
@@ -98,17 +98,18 @@ class PlannerEnv(gym.Env):
             self.diagstatus = n_ent.diagstatus
 
         def update_gpose(self, n_pose):
-            self.gpoint = Point(x=n_pose.y, y=n_pose.x, z=n_pose.z)
+            self.gpoint = Point(x=n_pose.x, y=n_pose.y, z=n_pose.z)
             self._pos = point_to_pos(self.gpoint)
 
         def update_imu(self, n_imu):
             self.imu = n_imu
 
         def update_health(self, n_health):
-            self.health = n_health
+            for a in n_health:
+                self.health[a.key] = a.value
 
         def update_twist(self, n_twist):
-            self.health = n_twist
+            self.twist = n_twist
 
         def is_line_of_sight_to(self, pos):
             res = False
@@ -165,14 +166,15 @@ class PlannerEnv(gym.Env):
 
     def enemy_description_callback(self, msg):
         a = self.Enemy(msg)
-        res = False
-        for elem in self.enemies:
-            if elem.id == a.id:
-                elem.update(a)
-                res = True
+        if a.id == 'Sniper':
+            res = False
+            for elem in self.enemies:
+                if elem.id == a.id:
+                    elem.update(a)
+                    res = True
                 break
-        if not res:
-            self.enemies.append(a)
+            if not res:
+                self.enemies.append(a)
         self.node.get_logger().debug('Received: "%s"' % msg)
 
     def entity_imu_callback(self, msg):
@@ -263,6 +265,7 @@ class PlannerEnv(gym.Env):
     # match_los[enemy_id].append(entity2)
     #   match_los = {enemy_id: [{}], enemy+id: [{}],}
     def compute_all_los(self):
+        self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.WARN)
         match_los = {}
         for enemy in self.enemies:
             this_enemy = enemy
@@ -275,19 +278,31 @@ class PlannerEnv(gym.Env):
                 try:
                     start = time.time()
                     if check_line_of_sight(one, two):
-                        match_los[this_enemy.id].append(entity.id)
-                        if not entity.is_los_enemy(this_enemy):
-                            if this_enemy.is_alive:
-                                entity._los_enemies.append(this_enemy)
+                        ### moshe melachlech
+                        moshe_melachlech_distance_parameter = 25
+                        moshe_melachlech_epsilon_parameter = 0.5
+                        dist = entity.pos.distance_to(enemy.pos)
+                        rand = random.random()
+                        self.node.get_logger().warning('enemy:' + this_enemy.id + ' entity:'+ entity.id + " dist:"+ ascii(dist)+ " rand:"+ascii(rand))
+                        #if math.sqrt(((enemy.pos.x - entity.pos.x) ** 2) + ((enemy.pos.y - entity.pos.y) ** 2) + ((enemy.pos.z - entity.pos.z) ** 2)) < moshe_melachlech_distance_parameter and random.random()< moshe_melachlech_epsilon_parameter:
+                        if entity.pos.distance_to(enemy.pos) < moshe_melachlech_distance_parameter and rand < moshe_melachlech_epsilon_parameter:
+                            ### end of moshe melachlech
+                            match_los[this_enemy.id].append(entity.id)
+                            if not entity.is_los_enemy(this_enemy):
+                                if this_enemy.is_alive:
+                                    entity._los_enemies.append(this_enemy)
                     else:
                         if entity.is_los_enemy(this_enemy):
-                            entity._los_enemies.append(this_enemy)
+                            entity._los_enemies.remove(this_enemy)
                     self.node.get_logger().debug('duration:' + ascii(time.time()-start))
                 except RuntimeError:
                     self.node.get_logger().error('Problems with LOS Service... Do Restart Simulation and Planner')
+                    self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
                     raise
                 except KeyboardInterrupt:
                     act_on_simulation(ascii(STOP))
+                    self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
+        self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
         return match_los
 
     def __init__(self):
@@ -534,7 +549,10 @@ class PlannerEnv(gym.Env):
                     goal = PointStamped()
                     lon,lat,alt = act[entity_id][0].toLongLatAlt()
                     goal.point = Point(x = lat, y = lon, z = alt)
-                    self.attack_goal(entity_id, goal)
+                    if entity_id == 'UGV':
+                        self.attack_goal(entity_id, goal)
+                    else:
+                        self.move_entity_to_goal(entity_id, goal)
 
         for act in self._actions['TAKE_PATH']:
             if len(act) > 0:

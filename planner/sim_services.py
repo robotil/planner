@@ -22,10 +22,11 @@ def check_line_of_sight(one, two):
     res = False
     node = rclpy.create_node('check_line_of_sight')
     line_of_sight_cli = node.create_client(CheckLOS, 'check_line_of_sight')
-
+    # DEBUG = 10 ERROR = 40 FATAL = 50 INFO = 20 UNSET = 0 WARN = 30
+    rclpy.node.get_logger(node.get_name()).set_level(rclpy.logging.LoggingSeverity.WARN)
     count = 1
     while not line_of_sight_cli.wait_for_service(timeout_sec=1.0):
-        print('CheckLOS not available, waiting again...')
+        node.get_logger().warning('CheckLOS not available, waiting again...'+ascii(count))
         count = count+1
         if count == 10:
             node.destroy_node()

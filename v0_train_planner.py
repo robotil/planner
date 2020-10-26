@@ -108,9 +108,10 @@ SOUTH_WEST_UGV_POS = lg_ugv.paths[PATH_ID][-1]
 GATE_POS = lg_ugv.paths['Path2'][-1]
 TIME_TO_STIMULATE_1 = LogicSim.MAX_STEPS / 4
 TIME_TO_STIMULATE_2 = LogicSim.MAX_STEPS / 2
-SUICIDE_WPS = [NORTH_WEST_SUICIDE, NORTH_EAST_SUICIDE]
-OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
-
+# SUICIDE_WPS = [NORTH_WEST_SUICIDE, NORTH_EAST_SUICIDE]
+# OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
+SUICIDE_WPS = []
+OBSERVER_WPS = []
 
 # ENEMY_POS = Pos(29.999796, 33.0004159, 0.0447149366)
 
@@ -124,18 +125,19 @@ def populate_positions(positions_dict):
     UGV_START_POS = lg_ugv.paths['Path1'][0]
     SENSOR_DRONE_START_POS = lg_ugv.paths['Path1'][0]
     SUICIDE_DRONE_START_POS = SENSOR_DRONE_START_POS
-    NORTH_WEST_SUICIDE = positions_dict['Waypoint 59']
+    NORTH_WEST_SUICIDE = positions_dict['Waypoint 49']
 
-    NORTH_EAST_SUICIDE = positions_dict['Waypoint 77']
-    NORTH_EAST_OBSERVER = positions_dict['Waypoint 77']
+    NORTH_EAST_SUICIDE = positions_dict['Waypoint 76']
+    NORTH_EAST_OBSERVER = positions_dict['Waypoint 76']
     SOUTH_EAST = positions_dict['Waypoint 79']
+
+    SOUTH_WEST = positions_dict['Waypoint 52']
     WEST_WINDOW_POS = positions_dict['Window1']
 
     NORTH_WINDOW_POS = positions_dict['House3']
     SOUTH_WINDOW_POS = positions_dict['House1']
     EAST_WINDOW_POS = positions_dict['House2']
-    SUICIDE_WPS = [NORTH_WEST_SUICIDE, NORTH_EAST_SUICIDE]
-    OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
+
 
 
 def dist2d(one, two):
@@ -226,6 +228,8 @@ def is_entity_positioned(entity, pos):
 
 
 def order_drones_movement(actions, suicide_drone, sensor_drone, plan_index, move_commanded):
+    global SUICIDE_WPS, OBSERVER_WPS
+
     assert len(SUICIDE_WPS) == len(OBSERVER_WPS)
 
     change_target = is_entity_positioned(suicide_drone, SUICIDE_WPS[plan_index]) and is_entity_positioned(sensor_drone,
@@ -269,6 +273,18 @@ def run_logical_sim(env, is_logical):
     global UGV_START_POS, SENSOR_DRONE_START_POS, SUICIDE_DRONE_START_POS, NORTH_WEST_SUICIDE
     global NORTH_EAST_SUICIDE, NORTH_EAST_OBSERVER, SOUTH_EAST, WEST_WINDOW_POS
     global NORTH_WINDOW_POS, SOUTH_WINDOW_POS, EAST_WINDOW_POS
+    global OBSERVER_WPS, SUICIDE_WPS
+
+    action_num = 1
+
+    if action_num == 1:
+        #action 1
+        SUICIDE_WPS = [NORTH_WEST_SUICIDE, NORTH_EAST_SUICIDE]
+        OBSERVER_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
+    elif action_num == 2:
+        # action2
+        OBSERVER_WPS = [NORTH_WEST_SUICIDE, NORTH_EAST_SUICIDE]
+        SUICIDE_WPS = [NORTH_EAST_OBSERVER, SOUTH_EAST]
 
     obs = env.reset()
 
@@ -341,12 +357,15 @@ def run_logical_sim(env, is_logical):
             reason='LOS Exception'
 
         # DONE LOGIC
-        if done or step > sim_env.MAX_STEPS:
+        if done or step >= sim_env.MAX_STEPS:
             if not reason == 'LOS Exception':
                 reason = "Logical Simulation" if done else "Step is " + str(step)
-            num_of_dead += len([enemy for enemy in sim_env.enemies if not enemy.is_alive])
-            num_of_lost_devices += len([e for e in sim_env.entities if e.health == 0.0])
-            done = True
+                num_of_dead += len([enemy for enemy in sim_env.enemies if not enemy.is_alive])
+                num_of_lost_devices += len([e for e in sim_env.entities if e.health['state '] != '0'])
+                done = True
+            else:
+                # Restart scenario
+                return (0, 0, 0, 0)
 
     # Episode is done
     diff_step = sim_env.MAX_STEPS - step + 1
@@ -410,15 +429,17 @@ def attack_enemy(action_list, entities_with_los_to_enemy, log_scd, log_ugv, log_
                 print("UGV attack:" + enemy.pos.__str__())
     elif log_scd in entities_with_los_to_enemy:
         # suicide.attack(ENEMY_POS)
-        for enemy in [enemy for enemy in log_scd.los_enemy if enemy not in attacked_enemies]:
-            attacked_enemies.append(enemy)
-            add_action(action_list, log_scd, 'ATTACK', (enemy.pos,))
-            print("SUICIDE attack:" + enemy.pos.__str__())
+        for enemy in log_scd.los_enemies:
+            if enemy not in attacked_enemies:
+                attacked_enemies.append(enemy)
+                add_action(action_list, log_scd, 'ATTACK', (enemy.pos,))
+                print("SUICIDE attack:" + enemy.pos.__str__())
     else:
-        for enemy in [enemy for enemy in log_sensor.los_enemy if enemy not in attacked_enemies]:
-            # suicide.goto(ENEMY_POS)
-            add_action(action_list, log_scd, 'MOVE_TO', (Pos(enemy.pos.x, enemy.pos.y, log_scd.pos.z),))
-            print("DRONE attack:" + enemy.pos.__str__())
+        for enemy in log_sensor.los_enemies:
+            if enemy not in attacked_enemies:
+                # suicide.goto(ENEMY_POS)
+                add_action(action_list, log_scd, 'MOVE_TO', (Pos(enemy.gpoint.x, enemy.gpoint.y, log_scd.gpoint.z),))
+                print("DRONE attack:" + enemy.pos.__str__())
 
 
 def ambush_on_indication_target(action_list, log_drn, log_scd, log_ugv, plan_index, start_ambush_step, step,
@@ -743,6 +764,13 @@ def configure_logger():
     stdout_handler.setLevel(logging.INFO)
     stdout_handler.setFormatter(formatter)
     root.addHandler(stdout_handler)
+
+    log_filename = '/tmp/log'
+    file_handler = logging.FileHandler(log_filename)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    root.addHandler(file_handler)
+
 
     socket_handler = SocketHandler('127.0.0.1', 19996)
     socket_handler.setLevel(logging.DEBUG)
