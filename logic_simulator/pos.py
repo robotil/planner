@@ -38,6 +38,10 @@ class Pos:
     def z(self):
         return self._z
 
+    @z.setter
+    def z(self, alt):
+        self._z = alt
+
     @property
     def lat(self):
         return self._lat

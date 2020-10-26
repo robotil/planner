@@ -279,8 +279,8 @@ class PlannerEnv(gym.Env):
                     start = time.time()
                     if check_line_of_sight(one, two):
                         ### moshe melachlech
-                        moshe_melachlech_distance_parameter = 25
-                        moshe_melachlech_epsilon_parameter = 0.5
+                        moshe_melachlech_distance_parameter = 40
+                        moshe_melachlech_epsilon_parameter = 0.005
                         dist = entity.pos.distance_to(enemy.pos)
                         rand = random.random()
                         self.node.get_logger().warning('enemy:' + this_enemy.id + ' entity:'+ entity.id + " dist:"+ ascii(dist)+ " rand:"+ascii(rand))
