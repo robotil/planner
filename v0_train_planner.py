@@ -417,7 +417,8 @@ def run_logical_sim(env, is_logical):
     # save episode experience replay to file
     now = datetime.datetime.now()
     with open('/tmp/experience.txt', 'a') as f:
-        f.write("----------"+now.strftime("%Y-%m-%d-%H:%M:%S")+"----------\n")
+        f.write("----------"+now.strftime("%Y-%m-%d-%H:%M:%S")+"----------\n"
+                                                               ".")
         for experience in episode_experience:
             f.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n"
                     .format(experience[0].x, experience[0].y, experience[0].z,
@@ -532,13 +533,15 @@ def ambush_on_indication_target(action_list, log_drn, log_scd, log_ugv, sniper, 
                 gate_pos_commanded = True
     plan_index, move_commanded = order_drones_movement(action_list, log_scd, log_drn, plan_index, move_commanded)
     if move_commanded:
-        if len(episode_experience) > 1:
+        if len(episode_experience) > 0:
+            # save current state as next state to previous experience
             episode_experience[-1][5] = log_scd.pos
             episode_experience[-1][6] = log_drn.pos
             episode_experience[-1][7] = log_ugv.pos
             episode_experience[-1][8] = sniper.pos
-        episode_experience.append(
-            [log_scd.pos, log_drn.pos, log_ugv.pos, sniper.pos, plan_index, Pos(), Pos(), Pos(), Pos(), 0])
+        # save current state and action
+        episode_experience.append([log_scd.pos, log_drn.pos, log_ugv.pos, sniper.pos, plan_index
+                                      , Pos(), Pos(), Pos(), Pos(), 0])
 
 
     order_drones_look_at(action_list, log_scd, log_drn)
