@@ -19,7 +19,7 @@ import matplotlib
 
 class LogicSim(gym.Env):
     NUM_ACTIONS = 4
-    MAX_STEPS = 100
+    MAX_STEPS = 300
     NUM_OF_ENTITIES = 3
     NUM_OF_ENEMIES = 1
     EPSILON = 5.0

@@ -24,6 +24,7 @@ from logic_simulator.pos import Pos
 from planner.sim_admin import check_state_simulation, act_on_simulation
 from planner.sim_services import check_line_of_sight, get_all_possible_ways
 from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
+from collections import deque
 import random
 STOP = 0
 START = 1
@@ -43,7 +44,7 @@ def pos_to_point(pos: Pos) -> Point:
 
 
 class PlannerEnv(gym.Env):
-    MAX_STEPS = 100
+    MAX_STEPS = 350
     STEP_REWARD = 1 / MAX_STEPS
     FINAL_REWARD = 1.0
     ENEMY_POS_2 = Point(x=29.999796, y=33.0004159, z=0.0447149366)
@@ -161,6 +162,7 @@ class PlannerEnv(gym.Env):
                 break
         if not res:
             self.entities.append(a)
+            self.entities_queue.append(a)
 
         self.node.get_logger().debug('Received: "%s"' % msg)
 
@@ -175,6 +177,7 @@ class PlannerEnv(gym.Env):
                 break
             if not res:
                 self.enemies.append(a)
+                self.match_los[a.id] = []
         self.node.get_logger().debug('Received: "%s"' % msg)
 
     def entity_imu_callback(self, msg):
@@ -266,44 +269,56 @@ class PlannerEnv(gym.Env):
     #   match_los = {enemy_id: [{}], enemy+id: [{}],}
     def compute_all_los(self):
         self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.WARN)
-        match_los = {}
+        #match_los = {}
         for enemy in self.enemies:
             this_enemy = enemy
             one = this_enemy.gpoint
             #onePsik =  Point(x=one.y, y=one.x, z=one.z)
-            match_los[this_enemy.id] = []
-            for entity in self.entities:
-                two = entity.gpoint
-                #twoPsik = Point(x=two.y, y=two.x, z=two.z)
-                try:
-                    start = time.time()
-                    if check_line_of_sight(one, two):
-                        ### moshe melachlech
-                        moshe_melachlech_distance_parameter = 40
-                        moshe_melachlech_epsilon_parameter = 0.005
-                        dist = entity.pos.distance_to(enemy.pos)
-                        rand = random.random()
-                        self.node.get_logger().warning('enemy:' + this_enemy.id + ' entity:'+ entity.id + " dist:"+ ascii(dist)+ " rand:"+ascii(rand))
-                        #if math.sqrt(((enemy.pos.x - entity.pos.x) ** 2) + ((enemy.pos.y - entity.pos.y) ** 2) + ((enemy.pos.z - entity.pos.z) ** 2)) < moshe_melachlech_distance_parameter and random.random()< moshe_melachlech_epsilon_parameter:
-                        if entity.pos.distance_to(enemy.pos) < moshe_melachlech_distance_parameter and rand < moshe_melachlech_epsilon_parameter:
-                            ### end of moshe melachlech
-                            match_los[this_enemy.id].append(entity.id)
-                            if not entity.is_los_enemy(this_enemy):
-                                if this_enemy.is_alive:
-                                    entity._los_enemies.append(this_enemy)
-                    else:
-                        if entity.is_los_enemy(this_enemy):
-                            entity._los_enemies.remove(this_enemy)
-                    self.node.get_logger().debug('duration:' + ascii(time.time()-start))
-                except RuntimeError:
-                    self.node.get_logger().error('Problems with LOS Service... Do Restart Simulation and Planner')
-                    self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
-                    raise
-                except KeyboardInterrupt:
-                    act_on_simulation(ascii(STOP))
-                    self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
+           # match_los[this_enemy.id] = []
+            # for entity in self.entities:
+            #     two = entity.gpoint
+            #twoPsik = Point(x=two.y, y=two.x, z=two.z)
+            entity = self.entities_queue.popleft()
+            two = entity.gpoint
+            try:
+                start = time.time()
+                if check_line_of_sight(one, two):
+                    ### moshe melachlech
+                    moshe_melachlech_distance_parameter = 40
+                    moshe_melachlech_epsilon_parameter = 0.005
+                    dist = entity.pos.distance_to(enemy.pos)
+                    rand = random.random()
+                    self.node.get_logger().warning('enemy:' + this_enemy.id + ' entity:'+ entity.id + " dist:"+ ascii(dist)+ " rand:"+ascii(rand))
+                    #if math.sqrt(((enemy.pos.x - entity.pos.x) ** 2) + ((enemy.pos.y - entity.pos.y) ** 2) + ((enemy.pos.z - entity.pos.z) ** 2)) < moshe_melachlech_distance_parameter and random.random()< moshe_melachlech_epsilon_parameter:
+                    if entity.pos.distance_to(enemy.pos) < moshe_melachlech_distance_parameter and rand < moshe_melachlech_epsilon_parameter:
+                        ### end of moshe melachlech
+                        res = False
+                        for x in self.match_los[this_enemy.id]:
+                            if x == entity.id:
+                                res=True
+                                break
+                        if res==False:
+                            self.match_los[this_enemy.id].append(entity.id)
+                        if not entity.is_los_enemy(this_enemy):
+                            if this_enemy.is_alive:
+                                entity._los_enemies.append(this_enemy)
+                else:
+                    for x in self.match_los[this_enemy.id]:
+                        if x == entity.id:
+                            self.match_los[this_enemy.id].remove(entity.id)
+                    if entity.is_los_enemy(this_enemy):
+                        entity._los_enemies.remove(this_enemy)
+                self.node.get_logger().debug('duration:' + ascii(time.time()-start))
+            except RuntimeError:
+                self.node.get_logger().error('Problems with LOS Service... Do Restart Simulation and Planner')
+                self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
+                raise
+            except KeyboardInterrupt:
+                act_on_simulation(ascii(STOP))
+                self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
+        self.entities_queue.append(entity)
         self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
-        return match_los
+        return self.match_los
 
     def __init__(self):
         super(PlannerEnv, self).__init__()
@@ -337,6 +352,8 @@ class PlannerEnv(gym.Env):
         # ROS2 Support
         self.entities = []
         self.enemies = []
+        self.entities_queue = deque([])
+        self.match_los = {}
 
         rclpy.init()
         self.node = rclpy.create_node("planner")

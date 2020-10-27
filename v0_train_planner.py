@@ -26,6 +26,7 @@ from logic_simulator.suicide_drone import SuicideDrone as lg_scd_drone
 from logic_simulator.ugv import Ugv as lg_ugv
 from logic_simulator.pos import Pos
 import copy
+import datetime
 from keras.models import load_model
 from matplotlib import pyplot as plt
 # from tensor_board_cb import TensorboardCallback
@@ -269,6 +270,7 @@ def order_drones_movement(actions, suicide_drone, sensor_drone, plan_index, move
 
     assert len(SUICIDE_WPS) == len(OBSERVER_WPS)
 
+
     change_target = is_entity_positioned(suicide_drone, SUICIDE_WPS[plan_index]) and \
                     is_entity_positioned(sensor_drone, OBSERVER_WPS[plan_index])
 
@@ -277,7 +279,7 @@ def order_drones_movement(actions, suicide_drone, sensor_drone, plan_index, move
         move_commanded = False
 
     if not move_commanded:
-        plan_index = plan_index if not change_target else (plan_index + random.randint(1, len(OBSERVER_WPS))) % len(
+        plan_index = plan_index if not change_target else (plan_index + random.randint(1, len(OBSERVER_WPS) - 1)) % len(
             OBSERVER_WPS)
         logging.debug('action selected - plan index = {}'.format(plan_index))
         #   suicide.goto(SUICIDE_WPS[plan_index])
@@ -341,10 +343,9 @@ def run_logical_sim(env, is_logical):
     reason = ""
     global number_of_line_of_sight_true
     number_of_line_of_sight_true = 0
+    episode_experience = []
+
     while not done:
-
-        episode_experience = []
-
         step += 1
 
         # ACTION LOGIC
@@ -401,17 +402,22 @@ def run_logical_sim(env, is_logical):
     diff_step = sim_env.MAX_STEPS - step + 1
     diff_step = diff_step / sim_env.MAX_STEPS
     this_reward = compute_reward(diff_step, num_of_dead, num_of_lost_devices)
-    for i, experience in enumerate(episode_experience):
-        experience[-1] = this_reward * DISCOUNT_FACTOR ** (len(episode_experience) - i)
 
-    # add last next_state
-    episode_experience[-1][5] = suicide_drone.pos
-    episode_experience[-1][6] = sensor_drone.pos
-    episode_experience[-1][7] = ugv.pos
-    episode_experience[-1][8] = sniper.pos
+    if len(episode_experience) > 0:
+        for i, experience in enumerate(episode_experience):
+            experience[-1] = this_reward * DISCOUNT_FACTOR ** (len(episode_experience) - i)
 
+        # add last next_state
+        episode_experience[-1][5] = suicide_drone.pos
+        episode_experience[-1][6] = sensor_drone.pos
+        episode_experience[-1][7] = ugv.pos
+        episode_experience[-1][8] = sniper.pos
+    else:
+        logging.warning('Episode Experience is empty')
     # save episode experience replay to file
+    now = datetime.datetime.now()
     with open('/tmp/experience.txt', 'a') as f:
+        f.write("----------"+now.strftime("%Y-%m-%d-%H:%M:%S")+"----------\n")
         for experience in episode_experience:
             f.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n"
                     .format(experience[0].x, experience[0].y, experience[0].z,
@@ -480,10 +486,9 @@ def attack_enemy(action_list, entities_with_los_to_enemy, log_scd, log_ugv, log_
     if log_ugv in entities_with_los_to_enemy:
         # ugv.attack(ENEMY_POS)
         for enemy in log_ugv.los_enemies:
-            if enemy.id == "Sniper":
-                attacked_enemies.append(enemy)
-                add_action(action_list, log_ugv, 'ATTACK', (enemy.pos,))
-                print("UGV attack:" + enemy.pos.__str__())
+            attacked_enemies.append(enemy)
+            add_action(action_list, log_ugv, 'ATTACK', (enemy.pos,))
+            print("UGV attack:" + enemy.pos.__str__())
     elif log_scd in entities_with_los_to_enemy:
         # suicide.attack(ENEMY_POS)
         for enemy in log_scd.los_enemies:
@@ -527,13 +532,14 @@ def ambush_on_indication_target(action_list, log_drn, log_scd, log_ugv, sniper, 
                 gate_pos_commanded = True
     plan_index, move_commanded = order_drones_movement(action_list, log_scd, log_drn, plan_index, move_commanded)
     if move_commanded:
-        episode_experience.append(
-            [log_scd.pos, log_drn.pos, log_ugv.pos, sniper.pos, plan_index, Pos(), Pos(), Pos(), Pos(), 0])
         if len(episode_experience) > 1:
             episode_experience[-1][5] = log_scd.pos
             episode_experience[-1][6] = log_drn.pos
             episode_experience[-1][7] = log_ugv.pos
             episode_experience[-1][8] = sniper.pos
+        episode_experience.append(
+            [log_scd.pos, log_drn.pos, log_ugv.pos, sniper.pos, plan_index, Pos(), Pos(), Pos(), Pos(), 0])
+
 
     order_drones_look_at(action_list, log_scd, log_drn)
     return plan_index, stimulation_1_step, stimulation_2_step, gate_pos_commanded, move_commanded, start_ambush_step, attack2_commanded
@@ -830,8 +836,8 @@ def configure_logger():
     stdout_handler.setLevel(logging.INFO)
     stdout_handler.setFormatter(formatter)
     root.addHandler(stdout_handler)
-
-    log_filename = '/tmp/log'
+    now = datetime.datetime.now()
+    log_filename = '/tmp/log'+now.strftime("%Y-%m-%d-%H:%M:%S")
     file_handler = logging.FileHandler(log_filename)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
