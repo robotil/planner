@@ -330,8 +330,8 @@ def run_logical_sim(env, is_logical):
     sniper = enemies[0]
 
     # Since pre-defined scenario, let's get all the entities
-    # Returns logic env and entities if is_logical==True
-    # planner_env and planner_env entities if is_logical ==False
+    # Returns logic env and entities if _is_logical==True
+    # planner_env and planner_env entities if _is_logical ==False
     sim_env, sensor_drone, suicide_drone, ugv = get_env_and_entities(env, is_logical)
 
     # redundant - sim_env.reset()
@@ -446,9 +446,9 @@ def get_env_and_entities(env, is_logical):
 
     Returns:
         env: PlannerEnv
-        drn: PlannerEnv.Entity if is_logical else SensorDrone
-        scd: PlannerEnv.Entity if is_logical else SuicideDrone
-        ugv: PlannerEnv.Entity if is_logical else Ugv
+        drn: PlannerEnv.Entity if _is_logical else SensorDrone
+        scd: PlannerEnv.Entity if _is_logical else SuicideDrone
+        ugv: PlannerEnv.Entity if _is_logical else Ugv
     """
     global UGV_START_POS, SUICIDE_DRONE_START_POS, SENSOR_DRONE_START_POS
 

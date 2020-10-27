@@ -270,7 +270,7 @@ class PlannerEnv(gym.Env):
     def compute_all_los(self):
         self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.WARN)
         #match_los = {}
-        for enemy in self.enemies:
+        for enemy in [ene for ene in self.enemies if ene.is_alive]:
             this_enemy = enemy
             one = this_enemy.gpoint
             #onePsik =  Point(x=one.y, y=one.x, z=one.z)

@@ -67,6 +67,12 @@ class Pos:
         direction = np.array([other.x - self.x, other.y - self.y, other.z - self.z])
         return direction / np.linalg.norm(direction)
 
+    def from_ref(self, ref_position):
+        return np.array([self.x - ref_position.x, self.y- ref_position.y, self.z - ref_position.z])
+
+    def to_list(self):
+        return [self.x,self.y,self.z]
+
     def __str__(self):
         return "({X},{Y},{Z})".format(X=self.x, Y=self.y, Z=self.z)
 
