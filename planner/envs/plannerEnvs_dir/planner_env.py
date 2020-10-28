@@ -25,6 +25,7 @@ from planner.sim_admin import check_state_simulation, act_on_simulation
 from planner.sim_services import check_line_of_sight, get_all_possible_ways
 from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
 from collections import deque
+import logging
 import random
 STOP = 0
 START = 1
@@ -63,8 +64,8 @@ class PlannerEnv(gym.Env):
 
         def update(self, n_enn):
             self.cep = n_enn.cep
-            # self.gpoint = Point(x=40.0, y=-23.0, z=0.044715006)
-            self.gpoint = n_enn.gpoint
+            #28/10/2020: Add 1.5 to the sniper, i.e all enemies
+            self.gpoint = Point(x=n_enn.gpoint.x, y=n_enn.gpoint.y, z=n_enn.gpoint.z+1.5)
             self._pos = point_to_pos(n_enn.gpoint)
             self.priority = n_enn.priority
             self.tclass = n_enn.tclass
@@ -99,7 +100,11 @@ class PlannerEnv(gym.Env):
             self.diagstatus = n_ent.diagstatus
 
         def update_gpose(self, n_pose):
-            self.gpoint = Point(x=n_pose.x, y=n_pose.y, z=n_pose.z)
+            if self.id =='UGV':
+                # 28/10/2020: Add 3.5 to UGV
+                self.gpoint = Point(x=n_pose.x, y=n_pose.y, z=n_pose.z+3.5)
+            else:
+                self.gpoint = Point(x=n_pose.x, y=n_pose.y, z=n_pose.z)
             self._pos = point_to_pos(self.gpoint)
 
         def update_imu(self, n_imu):
@@ -162,7 +167,8 @@ class PlannerEnv(gym.Env):
                 break
         if not res:
             self.entities.append(a)
-            self.entities_queue.append(a)
+            if not a.id == 'UGV':
+                self.entities_queue.append(a)
 
         self.node.get_logger().debug('Received: "%s"' % msg)
 
@@ -282,15 +288,22 @@ class PlannerEnv(gym.Env):
             two = entity.gpoint
             try:
                 start = time.time()
-                if check_line_of_sight(one, two):
+                answer = check_line_of_sight(one,two)
+                self.keep_los_recording(one, two, answer)
+                if answer: #check_line_of_sight(one, two):
                     ### moshe melachlech
-                    moshe_melachlech_distance_parameter = 40
+                    if entity.id == 'Suicide':
+                        moshe_melachlech_distance_parameter = 30
+                    else:
+                        moshe_melachlech_distance_parameter = 100
                     moshe_melachlech_epsilon_parameter = 0.005
                     dist = entity.pos.distance_to(enemy.pos)
-                    rand = random.random()
-                    self.node.get_logger().warning('enemy:' + this_enemy.id + ' entity:'+ entity.id + " dist:"+ ascii(dist)+ " rand:"+ascii(rand))
+                    #rand = random.random()
+                    self.node.get_logger().warning('enemy:' + this_enemy.id + ' entity:'+ entity.id + " dist:"+ ascii(dist))
+                    #self.node.get_logger().warning('enemy:' + this_enemy.id + ' entity:'+ entity.id + " dist:"+ ascii(dist)+ " rand:"+ascii(rand))
                     #if math.sqrt(((enemy.pos.x - entity.pos.x) ** 2) + ((enemy.pos.y - entity.pos.y) ** 2) + ((enemy.pos.z - entity.pos.z) ** 2)) < moshe_melachlech_distance_parameter and random.random()< moshe_melachlech_epsilon_parameter:
-                    if entity.pos.distance_to(enemy.pos) < moshe_melachlech_distance_parameter and rand < moshe_melachlech_epsilon_parameter:
+                    #if entity.pos.distance_to(enemy.pos) < moshe_melachlech_distance_parameter and rand < moshe_melachlech_epsilon_parameter:
+                    if entity.pos.distance_to(enemy.pos) < moshe_melachlech_distance_parameter:
                         ### end of moshe melachlech
                         res = False
                         for x in self.match_los[this_enemy.id]:
@@ -316,8 +329,8 @@ class PlannerEnv(gym.Env):
             except KeyboardInterrupt:
                 act_on_simulation(ascii(STOP))
                 self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
-        self.entities_queue.append(entity)
-        self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
+            self.entities_queue.append(entity)
+            self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
         return self.match_los
 
     def __init__(self):
@@ -377,6 +390,7 @@ class PlannerEnv(gym.Env):
         self.takePathPub = self.node.create_publisher(SPath, '/entity/takepath', 10)
         self.takeGoalPathPub = self.node.create_publisher(SGoalAndPath, '/entity/followpath/goal', 10)
         self.num_of_dead_enemies = 0
+        self.recordlosfn = 'record-los.csv'
 
         #       self.node.create_rate(10.0)
         #        rclpy.spin(self.node)
@@ -389,6 +403,12 @@ class PlannerEnv(gym.Env):
 
     def render(self, mode='human'):
         pass
+
+    def keep_los_recording(self, one, two, los):
+        f = open(self.recordlosfn, "a")
+        curr_string = one.__str__()+"," + two.__str__() + "," + los.__str__() + "\n"
+        f.write(curr_string)
+        f.close()
 
     def get_obs(self):
         obs = self.update_state()
@@ -506,6 +526,12 @@ class PlannerEnv(gym.Env):
         #
         # threshold = 7.5
         threshold = 0.0
+        suicide_has_suicide = False
+        for entity in self.entities:
+            if entity.health['state '] != '0':
+                suicide_has_suicide = True
+                done = True
+
         num_of_enemies = len(self.enemies)
         num_of_dead_enemies = 0
         for enemy in self.enemies:
@@ -515,14 +541,19 @@ class PlannerEnv(gym.Env):
         #if num_of_dead_enemies / num_of_enemies > threshold:
         if num_of_dead_enemies > 0:
             done = True
+
+        if done == True:
             reset = 'goal achieved'
-            print('----------------', reset, '----------------')
-            nret = act_on_simulation(ascii(STOP))
-            if nret != STOP:
-                print("Couldn't stop the simulation")
-            else:
-                self.simOn = False
-            final_reward = PlannerEnv.FINAL_REWARD
+            print('----------------', reset, '--------dead enemies:', ascii(num_of_dead_enemies),'--------dead entities:', ascii(suicide_has_suicide) )
+            logging.info('----------------'+reset+'--------dead enemies:'+ ascii(num_of_dead_enemies)+'--------dead entities:'+ ascii(suicide_has_suicide) )
+            self.node.get_logger().info('----------------'+reset+'--------dead enemies:'+ ascii(num_of_dead_enemies)+'--------dead entities:'+ascii(suicide_has_suicide) )
+
+            # nret = act_on_simulation(ascii(STOP))
+            # if nret != STOP:
+            #     print("Couldn't stop the simulation")
+            # else:
+            #     self.simOn = False
+            # final_reward = PlannerEnv.FINAL_REWARD
 
         self.steps += 1
 
