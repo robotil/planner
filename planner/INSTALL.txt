@@ -1,0 +1,4 @@
+After having done colcon build, you should:
+cp -r envs $INSTALL/planner/lib/python3.6/site-packages/planner
+If modified:
+cp PlannerPosition.csv to $INSTALL/planner/lib/python3.6/site-packages/planner

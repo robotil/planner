@@ -190,7 +190,7 @@ class PlannerScenarioEnv(gym.Env):
         positions_dict = {}
         irrelevant_keys = ['Ellipse1']
         paths_key = ['Path1', 'Path2']
-        with open('../../../PlannerPositions.csv', newline='') as csv_file:
+        with open('../../PlannerPositions.csv', newline='') as csv_file:
             reader = csv.reader(csv_file, delimiter=',', quotechar='|')
             next(reader)
             for row in reader:
