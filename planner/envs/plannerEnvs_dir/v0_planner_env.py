@@ -16,7 +16,7 @@ import numpy as np
 import tensorflow as tf
 from typing import Dict
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
-from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
+# from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
 import math
 
 from logic_simulator.logic_sim import LogicSim
@@ -110,6 +110,7 @@ def sim_enemy(enemy):
 class PlannerScenarioEnv(gym.Env):
     SUICIDE_FLIGHT_HEIGHT = 20.0
     OBSERVER_FLIGHT_HEIGHT = 25.0
+    MAX_DISTANCE_TO_ENEMY = 100.0
 
     SUICIDE_ATTACKING_DISTANCE = 15.0
 
@@ -170,13 +171,11 @@ class PlannerScenarioEnv(gym.Env):
         self._attack2_commanded = False
         self._change_target = False
         self._episode_experience = []
-
         self.action_space = spaces.Discrete(PlannerScenarioEnv.NUM_ACTIONS)
 
         self.observation_space = spaces.Box(low=-5.0, high=40.0, shape=(4, 3), dtype=np.float16)
 
         self.rootlog = self.configure_logger()
-
 
     def string_positions_list(self, str_list):
         l = len(str_list)
@@ -415,7 +414,7 @@ class PlannerScenarioEnv(gym.Env):
             for enemy in self._sensor_drone.los_enemies:
                 if enemy not in attacked_enemies:
                     # stopping sensor drone - positive LOS to enemy
-                    self.add_action(action_list, self._sensor_drone, 'MOVE_TO',(self._sensor_drone.pos,))
+                    self.add_action(action_list, self._sensor_drone, 'MOVE_TO', (self._sensor_drone.pos,))
                     self.rootlog.warning("SENSOR stop - you have LOS!!!")
                     # suicide.goto(ENEMY_POS)
                     if self._suicide_drone.pos.distance_to(enemy.pos) > PlannerScenarioEnv.SUICIDE_ATTACKING_DISTANCE:
@@ -444,10 +443,10 @@ class PlannerScenarioEnv(gym.Env):
         if self._move_commanded:
             if len(self._episode_experience) > 0:
                 # save current state as next state to previous experience
-                self._episode_experience[-1][2] = self._get_obs()
+                self._episode_experience[-1][2] = self.get_obs()
             # save current state and action
             self._episode_experience.append(
-                [self._get_obs(), self._plan_index, np.zeros(shape=(4, 3), dtype=np.float16), 0.0])
+                [self.get_obs(), self._plan_index, np.zeros(shape=(4, 3), dtype=np.float16), 0.0])
             # [self._suicide_drone.pos, self._sensor_drone.pos, self._ugv.pos, self._sniper.pos,
             #  self._plan_index, Pos(), Pos(), Pos(), Pos(), 0])
 
@@ -530,13 +529,13 @@ class PlannerScenarioEnv(gym.Env):
         # planner_env and planner_env entities if _is_logical ==False
         self._sensor_drone, self._suicide_drone, self._ugv = self.get_env_and_entities(self._is_logical)
 
-        self._step, \
-        self._start_ambush_step, \
-        self._stimulation_1_step, \
-        self._stimulation_2_step, \
-        self._plan_index, \
-        self._num_of_dead, \
-        self._num_of_lost_devices = 0, 0, 0, 0, 0, 0, 0
+        self._step = 0
+        self._start_ambush_step = 0
+        self._stimulation_1_step = 0
+        self._stimulation_2_step = 0
+        self._plan_index = 0
+        self._num_of_dead = 0
+        self._num_of_lost_devices = 0
         done, all_entities_positioned, move_to_indication_target_commanded = False, False, False
         self._gate_pos_commanded, self._plan_phase_commanded, self._attack2_commanded = False, False, False
         reason = ""
@@ -603,7 +602,7 @@ class PlannerScenarioEnv(gym.Env):
                     experience[-1] = this_reward * DISCOUNT_FACTOR ** (len(self._episode_experience) - i)
 
                 # add last next_state
-                self._episode_experience[-1][2] = self._get_obs()
+                self._episode_experience[-1][2] = self.get_obs()
 
             else:
                 self.rootlog.warning('Episode Experience is empty')
@@ -630,13 +629,14 @@ class PlannerScenarioEnv(gym.Env):
                     done) + " Reason " + reason)
         # return this_reward, int(diff_step * self.plannerEnv.MAX_STEPS), self._num_of_dead, self._num_of_lost_devices
 
-        return self._get_obs()
+        return self.get_obs()
 
     def step(self, action):
         assert isinstance(action, int) and 0 <= action <= len(PlannerScenarioEnv.OBSERVER_WPS)
         reason = 'No reason'
         self._plan_index = action
-
+        inner_step_start = self._step
+        immediate_reward = 0.0
         self._change_target, done, self._move_commanded = False, False, False
         while not self._change_target and not done:
             self._step += 1
@@ -648,7 +648,14 @@ class PlannerScenarioEnv(gym.Env):
                 [self._suicide_drone, self._sensor_drone, self._ugv])
             if len(entities_with_los_to_enemy) > 0:
                 # ENEMY FOUND !!!
-                self.attack_enemy(action_list, entities_with_los_to_enemy)
+                suicide_distance_to_enemy = self._suicide_drone.pos.distance_to(self._sniper.pos)
+
+                immediate_reward += (PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY - suicide_distance_to_enemy) \
+                                / PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY
+
+                # TODO uncomment these if you are fascist
+                # self._move_commanded = False
+                # self.attack_enemy(action_list, entities_with_los_to_enemy)
             else:
                 self.ambush_on_indication_target(action_list)
 
@@ -670,20 +677,17 @@ class PlannerScenarioEnv(gym.Env):
                 self.rootlog.error('inner step {}: LOS SERVER DOWN - Rerun the episode'.format(self._step))
                 done = 1
                 reason = 'LOS Exception'
+                return np.zeros(shape=(4, 3), dtype=np.float16), 0.0, True, {}
+                #return self.get_obs(), reward, done, {}
             this_reward = 0.0
 
             # DONE LOGIC
             if done or self._step >= self.plannerEnv.MAX_STEPS:
-                if not reason == 'LOS Exception':
-                    reason = "Logical Simulation" if done else "Step is " + str(self._step)
-                    self._num_of_dead += len([enemy for enemy in self.plannerEnv.enemies if not enemy.is_alive])
-                    self._num_of_lost_devices += len([e for e in self.plannerEnv.entities if e.health['state '] != '0'])
-                    done = True
-                else:
-                    #  'LOS Exception'  - Restart scenario
-                    return np.zeros(shape=(4, 3), dtype=np.float16)
+                reason = "Logical Simulation" if done else "Step is " + str(self._step)
+                self._num_of_dead += len([enemy for enemy in self.plannerEnv.enemies if not enemy.is_alive])
+                self._num_of_lost_devices += len([e for e in self.plannerEnv.entities if e.health['state '] != '0'])
+                done = True
 
-            if done:
                 # Episode is done
                 diff_step = self.plannerEnv.MAX_STEPS - self._step + 1
                 diff_step = diff_step / self.plannerEnv.MAX_STEPS
@@ -694,7 +698,7 @@ class PlannerScenarioEnv(gym.Env):
                         experience[-1] = this_reward * DISCOUNT_FACTOR ** (len(self._episode_experience) - i)
 
                     # add last next_state
-                    self._episode_experience[-1][2] = self._get_obs()
+                    self._episode_experience[-1][2] = self.get_obs()
 
                 else:
                     self.rootlog.warning('Episode Experience is empty')
@@ -720,16 +724,18 @@ class PlannerScenarioEnv(gym.Env):
                     "Scenario completed: step " + ascii(self._step) + " reward " + ascii(this_reward) + " Done "
                     + ascii(done) + " Reason " + reason)
 
-        return self._get_obs(), this_reward, done, {}
+        reward = immediate_reward / (self._step - inner_step_start + 1)
 
-    def _get_obs(self):
+        return self.get_obs(), reward, done, {}
+        # return self._get_obs(), this_reward, done, {}
+
+    def get_obs(self):
         ref_pos = PlannerScenarioEnv.SOUTH_WEST_UGV_POS
         return np.array([self._suicide_drone.pos.from_ref(ref_pos), self._sensor_drone.pos.from_ref(ref_pos),
                          self._ugv.pos.from_ref(ref_pos), self._sniper.pos.from_ref(ref_pos)])
 
 
 def main(args=None):
-
     trainer_root = logging.getLogger(__name__)
     formatter = logging.Formatter(
         "[%(filename)s:%(lineno)s - %(funcName)s() %(asctime)s %(levelname)s] %(message)s")
@@ -754,22 +760,48 @@ def main(args=None):
     logging.info("coucou")
     planner_scenario_env = PlannerScenarioEnv()
     end_of_session = False
-    while not end_of_session:
-        obs = planner_scenario_env.reset()
-        trainer_root.info('initial state suicide {} sensor {} ugv {} sniper {}'.format(obs[0], obs[1], obs[2], obs[3]))
-        action = 0
+    experience_buffer =[]
+    session_num = 1
 
+    while not end_of_session:
         num_step = 0
-        session_num = 1
+        action = 0
         done = False
+        obs = planner_scenario_env.reset()
+        trainer_root.info('SESSION: {} initial state suicide {} sensor {} ugv {} sniper {}'.format(session_num, obs[0], obs[1], obs[2], obs[3]))
+
         while not done:
             num_step += 1
-            action = (action + random.randint(action, PlannerScenarioEnv.NUM_ACTIONS - 1)) % PlannerScenarioEnv.NUM_ACTIONS
+            action = (action + random.randint(action,
+                                              PlannerScenarioEnv.NUM_ACTIONS - 1)) % PlannerScenarioEnv.NUM_ACTIONS
             trainer_root.debug('action selected {}'.format(action))
             obs, reward, done, _ = planner_scenario_env.step(action)
-            trainer_root.info(
-                'state TSTEP {} suicide {} sensor {} ugv {} sniper {}'.format(num_step, obs[0], obs[1], obs[2], obs[3]))
-            trainer_root.debug('TSTEP {} end reward {}'.format(num_step, reward))
+            trainer_root.debug(
+                'state OUTER STEP {} suicide {} sensor {} ugv {} sniper {}'.format(num_step, obs[0], obs[1], obs[2], obs[3]))
+            trainer_root.critical('OUTER STEP {} reward {}'.format(num_step, reward))
+
+            if len(experience_buffer) > 0:
+                # save current state as next state to previous experience
+                experience_buffer[-1][2] = obs
+            # save current state and action
+            experience_buffer.append([obs, action, np.zeros(shape=(4, 3), dtype=np.float16), reward])
+
+        with open('/tmp/outer_experience.txt', 'a') as f:
+            f.write("----------" + now.strftime("%Y-%m-%d-%H:%M:%S") + "----------\n"
+                                                                       ".")
+            for experience in experience_buffer:
+                f.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n"
+                        .format(experience[0][0][0], experience[0][0][1], experience[0][0][2],
+                                experience[0][1][0], experience[0][1][1], experience[0][1][2],
+                                experience[0][2][0], experience[0][2][1], experience[0][2][2],
+                                experience[0][3][0], experience[0][3][1], experience[0][3][2],
+                                experience[1],
+                                experience[2][0][0], experience[2][0][1], experience[2][0][2],
+                                experience[2][1][0], experience[2][1][1], experience[2][1][2],
+                                experience[2][2][0], experience[2][2][1], experience[2][2][2],
+                                experience[2][3][0], experience[2][3][1], experience[2][3][2],
+                                experience[3]))
+
         trainer_root.info('episode done! reward {}'.format(reward))
         f = open("results.csv", "a")
         curr_string = datetime.datetime.now().__str__() + "," + reward.__str__() + "," + num_step.__str__() + "\n"
@@ -782,4 +814,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-

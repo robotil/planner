@@ -45,7 +45,7 @@ def pos_to_point(pos: Pos) -> Point:
 
 
 class PlannerEnv(gym.Env):
-    MAX_STEPS = 350
+    MAX_STEPS = 200
     STEP_REWARD = 1 / MAX_STEPS
     FINAL_REWARD = 1.0
     ENEMY_POS_2 = Point(x=29.999796, y=33.0004159, z=0.0447149366)
