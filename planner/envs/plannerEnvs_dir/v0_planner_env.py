@@ -158,7 +158,7 @@ class PlannerScenarioEnv(gym.Env):
         inner_env_name = 'PlannerEnv-v0'
         self.plannerEnv = gym.make(inner_env_name)
         print('gym env created', inner_env_name, self.plannerEnv)
-        self._is_logical = False
+        self._is_logical = True
         self._plan_index, self._stimulation_1_step, self._stimulation_2_step, \
         self._gate_pos_commanded, self._plan_phase_commanded, self._start_ambush_step, \
         self._attack2_commanded = 0, 0, 0, 0, 0, 0, 0
@@ -578,7 +578,7 @@ class PlannerScenarioEnv(gym.Env):
             try:
                 obs, reward, done, _ = self.plannerEnv.step(action_list)
                 self.rootlog.debug('step {}: obs = {}, reward = {}, done = {}'.format(self._step, obs, reward, done))
-                self.plannerEnv.render()
+                # self.plannerEnv.render()
             except RuntimeError:
                 self.rootlog.debug('step {}: LOS SERVER DOWN - Rerun the episode'.format(self._step))
                 done = 1
@@ -680,7 +680,8 @@ class PlannerScenarioEnv(gym.Env):
                 #         obs['entities'][0].id, obs['entities'][0].gpoint, obs['entities'][2].id,
                 #         obs['entities'][2].gpoint, obs['entities'][1].id, obs['entities'][1].gpoint, \
                 #         reward, done))
-                self.plannerEnv.render()
+
+                # self.plannerEnv.render()
             except RuntimeError:
                 self.rootlog.error('inner step {}: LOS SERVER DOWN - Rerun the episode'.format(self._step))
                 done = 1

@@ -12,9 +12,6 @@ import copy
 from itertools import chain
 import gym
 import logging
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
-import matplotlib
 
 
 class LogicSim(gym.Env):
@@ -29,8 +26,7 @@ class LogicSim(gym.Env):
         'ATTACK': {SuicideDrone: SuicideDrone.attack, Ugv: Ugv.attack},
         'TAKE_PATH': {Ugv: Ugv.go_to}
     }
-
-    FIG = plt.figure()
+    FIG = None
 
     observation_space = gym.spaces.Tuple([
         gym.spaces.Tuple([  # Entities obs
@@ -58,14 +54,11 @@ class LogicSim(gym.Env):
     ])
 
     def __init__(self, entities: dict, enemies=[]):
+        self._interactive_activated = False
         self._entities = entities
         self._enemies = enemies
         self._step = 0
         self._entities_not_commanded = []
-        self._fig = LogicSim.FIG
-        self._ax = self._fig.add_subplot(111, projection='3d')
-        self._scatter = None
-        matplotlib.interactive(True)
 
     @property
     def enemies(self):
@@ -85,6 +78,19 @@ class LogicSim(gym.Env):
         return "o" if isinstance(e, Ugv) else "^" if isinstance(e, SuicideDrone) else "*"
 
     def render(self, mode='human'):
+        from mpl_toolkits.mplot3d import Axes3D
+        import matplotlib.pyplot as plt
+        import matplotlib
+
+        if not self._interactive_activated:
+            matplotlib.interactive(True)
+            self._interactive_activated = True
+            if LogicSim.FIG == None:
+                LogicSim.FIG = plt.figure()
+            self._fig = LogicSim.FIG
+            self._ax = self._fig.add_subplot(111, projection='3d')
+            self._scatter = None
+
         positions = [(e.pos.x, e.pos.y, e.pos.z,
                       'r' if isinstance(e, Enemy) else 'm' if isinstance(e, Ugv) else 'g' if isinstance(e,
                                                                                                         SuicideDrone) else 'b',
@@ -209,4 +215,3 @@ class LogicSim(gym.Env):
     def _update_not_commanded(self):
         for e in self._entities_not_commanded:
             e.update()
-
