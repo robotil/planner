@@ -9,5 +9,10 @@ cp -r planner/envs  /home/iaiai/git/ros2ws/install/planner/lib/python3.6/site-pa
 if [ -z "$1" ]
   then
     echo "no domain id - default"
+    export ROS_DOMAIN_ID=1
+else
+    export ROS_DOMAIN_ID=$1
 fi
-export ROS_DOMAIN_ID="$1"
+
+cd planner/envs/plannerEnvs_dir
+./v0_planner_env.py
