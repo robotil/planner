@@ -4,8 +4,10 @@ import os
 import random
 from logging.handlers import SocketHandler
 
+from stable_baselines.bench import Monitor, load_results
 from stable_baselines.gail import ExpertDataset
-from stable_baselines import TRPO, A2C, DDPG, PPO1, PPO2, SAC, ACER, ACKTR, GAIL, DQN, HER, TD3, logger
+from stable_baselines import TRPO, A2C, DDPG, PPO1, PPO2, SAC, ACER, ACKTR, GAIL, DQN, HER, TD3, logger, results_plotter
+from stable_baselines.common.policies import MlpPolicy
 import gym
 from gym import spaces
 import logging, sys
@@ -18,6 +20,8 @@ from typing import Dict
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
 # from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
 import math
+
+from stable_baselines.results_plotter import ts2xy
 
 from logic_simulator.logic_sim import LogicSim
 from logic_simulator.enemy import Enemy as lg_enemy
@@ -490,10 +494,10 @@ class PlannerScenarioEnv(gym.Env):
         formatter = logging.Formatter(
             "[%(filename)s:%(lineno)s - %(funcName)s() %(asctime)s %(levelname)s] %(message)s")
 
-        stdout_handler = logging.StreamHandler(sys.stdout)
-        stdout_handler.setLevel(logging.INFO)
-        stdout_handler.setFormatter(formatter)
-        root.addHandler(stdout_handler)
+        # stdout_handler = logging.StreamHandler(sys.stdout)
+        # stdout_handler.setLevel(logging.INFO)
+        # stdout_handler.setFormatter(formatter)
+        # root.addHandler(stdout_handler)
         now = datetime.datetime.now()
         log_filename = '/tmp/gymplanner-' + now.strftime("%Y-%m-%d-%H:%M:%S")
         file_handler = logging.FileHandler(log_filename)
@@ -632,9 +636,13 @@ class PlannerScenarioEnv(gym.Env):
         return self.get_obs()
 
     def step(self, action):
-        assert isinstance(action, int) and 0 <= action <= len(PlannerScenarioEnv.OBSERVER_WPS)
+        logging.info('start of step function action {}'.format(action))
+        self._plan_index = int(action)
+        assert self._plan_index in range(len(PlannerScenarioEnv.OBSERVER_WPS))
+        # assert isinstance(action, int) and 0 <= action <= len(PlannerScenarioEnv.OBSERVER_WPS),\
+        #     'action {} of type {} not valid'.format(action, type(action))
         reason = 'No reason'
-        self._plan_index = action
+        # self._plan_index = action
         inner_step_start = self._step
         immediate_reward = 0.0
         self._change_target, done, self._move_commanded = False, False, False
@@ -651,7 +659,7 @@ class PlannerScenarioEnv(gym.Env):
                 suicide_distance_to_enemy = self._suicide_drone.pos.distance_to(self._sniper.pos)
 
                 immediate_reward += (PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY - suicide_distance_to_enemy) \
-                                / PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY
+                                    / PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY
 
                 # TODO uncomment these if you are fascist
                 # self._move_commanded = False
@@ -678,7 +686,7 @@ class PlannerScenarioEnv(gym.Env):
                 done = 1
                 reason = 'LOS Exception'
                 return np.zeros(shape=(4, 3), dtype=np.float16), 0.0, True, {}
-                #return self.get_obs(), reward, done, {}
+                # return self.get_obs(), reward, done, {}
             this_reward = 0.0
 
             # DONE LOGIC
@@ -734,16 +742,66 @@ class PlannerScenarioEnv(gym.Env):
         return np.array([self._suicide_drone.pos.from_ref(ref_pos), self._sensor_drone.pos.from_ref(ref_pos),
                          self._ugv.pos.from_ref(ref_pos), self._sniper.pos.from_ref(ref_pos)])
 
+class SaveOnBestTrainingRewardCallback(BaseCallback):
+    """
+    Taken from stable_baselines documentation
+    Callback for saving a model (the check is done every ``check_freq`` steps)
+    based on the training reward (in practice, we recommend using ``EvalCallback``).
 
-def main(args=None):
+    :param check_freq: (int)
+    :param log_dir: (str) Path to the folder where the model will be saved.
+      It must contains the file created by the ``Monitor`` wrapper.
+    :param verbose: (int)
+    """
+    def __init__(self, check_freq: int, log_dir: str, verbose=1):
+        super(SaveOnBestTrainingRewardCallback, self).__init__(verbose)
+        self.check_freq = check_freq
+        self.log_dir = log_dir
+        self.save_path = os.path.join(log_dir, 'best_model')
+        self.best_mean_reward = -np.inf
+
+    def _init_callback(self) -> None:
+        # Create folder if needed
+        if self.save_path is not None:
+            os.makedirs(self.save_path, exist_ok=True)
+
+    def _on_step(self) -> bool:
+        if self.n_calls % self.check_freq == 0:
+
+          # Retrieve training reward
+          x, y = ts2xy(load_results(self.log_dir), 'timesteps')
+          if len(x) > 0:
+              # Mean training reward over the last 100 episodes
+              mean_reward = np.mean(y[-100:])
+              if self.verbose > 0:
+                print("Num timesteps: {}".format(self.num_timesteps))
+                print("Best mean reward: {:.2f} - Last mean reward per episode: {:.2f}".format(self.best_mean_reward, mean_reward))
+
+              results_plotter.plot_results([self.log_dir], self.num_timesteps, results_plotter.X_TIMESTEPS,
+                                           "ppo_planner_scenario_results")
+              plt.show()
+
+
+              # New best model, you could save the agent here
+              if mean_reward > self.best_mean_reward:
+                  self.best_mean_reward = mean_reward
+                  # Example for saving best model
+                  if self.verbose > 0:
+                    print("Saving new best model to {}".format(self.save_path))
+                  self.model.save(self.save_path)
+
+        return True
+
+
+def main(args=None, run_stable_baselines_agent=False):
     trainer_root = logging.getLogger(__name__)
     formatter = logging.Formatter(
         "[%(filename)s:%(lineno)s - %(funcName)s() %(asctime)s %(levelname)s] %(message)s")
 
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setLevel(logging.INFO)
-    stdout_handler.setFormatter(formatter)
-    trainer_root.addHandler(stdout_handler)
+    # stdout_handler = logging.StreamHandler(sys.stdout)
+    # stdout_handler.setLevel(logging.INFO)
+    # stdout_handler.setFormatter(formatter)
+    # trainer_root.addHandler(stdout_handler)
     now = datetime.datetime.now()
     log_filename = '/tmp/plannertrainer-' + now.strftime("%Y-%m-%d-%H:%M:%S")
     file_handler = logging.FileHandler(log_filename)
@@ -760,57 +818,72 @@ def main(args=None):
     logging.info("coucou")
     planner_scenario_env = PlannerScenarioEnv()
     end_of_session = False
-    experience_buffer =[]
+    experience_buffer = []
     session_num = 1
 
-    while not end_of_session:
-        num_step = 0
-        action = 0
-        done = False
-        obs = planner_scenario_env.reset()
-        trainer_root.info('SESSION: {} initial state suicide {} sensor {} ugv {} sniper {}'.format(session_num, obs[0], obs[1], obs[2], obs[3]))
+    if run_stable_baselines_agent:
+        log_dir = 'tmp_log/'
+        os.makedirs(log_dir, exist_ok=True)
+        monitored_env = Monitor(planner_scenario_env, log_dir)
+        callback = SaveOnBestTrainingRewardCallback(check_freq=10, log_dir=log_dir)
+        model = PPO2(MlpPolicy, monitored_env, verbose=1)
+        time_steps = 5000
+        model.learn(total_timesteps=time_steps, log_interval=10, callback=callback)
+        model.save("ppo_planner_scenario_model")
+        results_plotter.plot_results([log_dir], time_steps, results_plotter.X_TIMESTEPS, "ppo_planner_scenario_results")
+        plt.show()
+    else:
+        while not end_of_session:
+            num_step = 0
+            action = 0
+            done = False
+            obs = planner_scenario_env.reset()
+            trainer_root.info(
+                'SESSION: {} initial state suicide {} sensor {} ugv {} sniper {}'.format(session_num, obs[0], obs[1],
+                                                                                         obs[2], obs[3]))
 
-        while not done:
-            num_step += 1
-            action = (action + random.randint(action,
-                                              PlannerScenarioEnv.NUM_ACTIONS - 1)) % PlannerScenarioEnv.NUM_ACTIONS
-            trainer_root.debug('action selected {}'.format(action))
-            obs, reward, done, _ = planner_scenario_env.step(action)
-            trainer_root.debug(
-                'state OUTER STEP {} suicide {} sensor {} ugv {} sniper {}'.format(num_step, obs[0], obs[1], obs[2], obs[3]))
-            trainer_root.critical('OUTER STEP {} reward {}'.format(num_step, reward))
+            while not done:
+                num_step += 1
+                action = (action + random.randint(action,
+                                                  PlannerScenarioEnv.NUM_ACTIONS - 1)) % PlannerScenarioEnv.NUM_ACTIONS
+                trainer_root.debug('action selected {}'.format(action))
+                obs, reward, done, _ = planner_scenario_env.step(action)
+                trainer_root.debug(
+                    'state OUTER STEP {} suicide {} sensor {} ugv {} sniper {}'.format(num_step, obs[0], obs[1], obs[2],
+                                                                                       obs[3]))
+                trainer_root.critical('OUTER STEP {} reward {}'.format(num_step, reward))
 
-            if len(experience_buffer) > 0:
-                # save current state as next state to previous experience
-                experience_buffer[-1][2] = obs
-            # save current state and action
-            experience_buffer.append([obs, action, np.zeros(shape=(4, 3), dtype=np.float16), reward])
+                if len(experience_buffer) > 0:
+                    # save current state as next state to previous experience
+                    experience_buffer[-1][2] = obs
+                # save current state and action
+                experience_buffer.append([obs, action, np.zeros(shape=(4, 3), dtype=np.float16), reward])
 
-        with open('/tmp/outer_experience.txt', 'a') as f:
-            f.write("----------" + now.strftime("%Y-%m-%d-%H:%M:%S") + "----------\n"
-                                                                       ".")
-            for experience in experience_buffer:
-                f.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n"
-                        .format(experience[0][0][0], experience[0][0][1], experience[0][0][2],
-                                experience[0][1][0], experience[0][1][1], experience[0][1][2],
-                                experience[0][2][0], experience[0][2][1], experience[0][2][2],
-                                experience[0][3][0], experience[0][3][1], experience[0][3][2],
-                                experience[1],
-                                experience[2][0][0], experience[2][0][1], experience[2][0][2],
-                                experience[2][1][0], experience[2][1][1], experience[2][1][2],
-                                experience[2][2][0], experience[2][2][1], experience[2][2][2],
-                                experience[2][3][0], experience[2][3][1], experience[2][3][2],
-                                experience[3]))
+            with open('/tmp/outer_experience.txt', 'a') as f:
+                f.write("----------" + now.strftime("%Y-%m-%d-%H:%M:%S") + "----------\n"
+                                                                           ".")
+                for experience in experience_buffer:
+                    f.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n"
+                            .format(experience[0][0][0], experience[0][0][1], experience[0][0][2],
+                                    experience[0][1][0], experience[0][1][1], experience[0][1][2],
+                                    experience[0][2][0], experience[0][2][1], experience[0][2][2],
+                                    experience[0][3][0], experience[0][3][1], experience[0][3][2],
+                                    experience[1],
+                                    experience[2][0][0], experience[2][0][1], experience[2][0][2],
+                                    experience[2][1][0], experience[2][1][1], experience[2][1][2],
+                                    experience[2][2][0], experience[2][2][1], experience[2][2][2],
+                                    experience[2][3][0], experience[2][3][1], experience[2][3][2],
+                                    experience[3]))
 
-        trainer_root.info('episode done! reward {}'.format(reward))
-        f = open("results.csv", "a")
-        curr_string = datetime.datetime.now().__str__() + "," + reward.__str__() + "," + num_step.__str__() + "\n"
-        f.write(curr_string)
-        f.close()
-        session_num += 1
-        if session_num > 10000:
-            end_of_session = True
+            trainer_root.info('episode done! reward {}'.format(reward))
+            f = open("results.csv", "a")
+            curr_string = datetime.datetime.now().__str__() + "," + reward.__str__() + "," + num_step.__str__() + "\n"
+            f.write(curr_string)
+            f.close()
+            session_num += 1
+            if session_num > 10000:
+                end_of_session = True
 
 
 if __name__ == '__main__':
-    main()
+    main(run_stable_baselines_agent=True)
