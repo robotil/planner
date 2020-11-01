@@ -158,7 +158,7 @@ class PlannerScenarioEnv(gym.Env):
         inner_env_name = 'PlannerEnv-v0'
         self.plannerEnv = gym.make(inner_env_name)
         print('gym env created', inner_env_name, self.plannerEnv)
-        self._is_logical = True
+        self._is_logical = False
         self._plan_index, self._stimulation_1_step, self._stimulation_2_step, \
         self._gate_pos_commanded, self._plan_phase_commanded, self._start_ambush_step, \
         self._attack2_commanded = 0, 0, 0, 0, 0, 0, 0

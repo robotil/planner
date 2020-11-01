@@ -23,7 +23,7 @@ from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, Enem
 from logic_simulator.pos import Pos
 from planner.sim_admin import check_state_simulation, act_on_simulation
 from planner.sim_services import check_line_of_sight, get_all_possible_ways
-from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
+#from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
 from collections import deque
 import logging
 import random
