@@ -18,15 +18,17 @@ from std_msgs.msg import String, Header
 from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
-from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath, SGoalAndPath, STwist
+from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath, SGoalAndPath, \
+    STwist
 
 from logic_simulator.pos import Pos
 from planner.sim_admin import check_state_simulation, act_on_simulation
 from planner.sim_services import check_line_of_sight, get_all_possible_ways
-#from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
+# from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
 from collections import deque
 import logging
 import random
+
 STOP = 0
 START = 1
 PAUSE = 2
@@ -49,11 +51,12 @@ class PlannerEnv(gym.Env):
     STEP_REWARD = 1 / MAX_STEPS
     FINAL_REWARD = 1.0
     ENEMY_POS_2 = Point(x=29.999796, y=33.0004159, z=0.0447149366)
+
     class Enemy:
         def __init__(self, msg):
             self.cep = msg.cep
             # self.gpoint = msg.gpose # self.gpoint = Point(x=-0.000204155, y=0.00035984, z=0.044715006)
-            self.gpoint = msg.gpose #Point(x=40.0, y=-23.0, z=0.044715006)
+            self.gpoint = msg.gpose  # Point(x=40.0, y=-23.0, z=0.044715006)
             self.priority = msg.priority
             self.tclass = msg.tclass
             self.is_alive = msg.is_alive
@@ -61,11 +64,10 @@ class PlannerEnv(gym.Env):
             self.id = msg.id
             self._pos = Pos()
 
-
         def update(self, n_enn):
             self.cep = n_enn.cep
-            #28/10/2020: Add 1.5 to the sniper, i.e all enemies
-            self.gpoint = Point(x=n_enn.gpoint.x, y=n_enn.gpoint.y, z=n_enn.gpoint.z+1.5)
+            # 28/10/2020: Add 1.5 to the sniper, i.e all enemies
+            self.gpoint = Point(x=n_enn.gpoint.x, y=n_enn.gpoint.y, z=n_enn.gpoint.z + 1.5)
             self._pos = point_to_pos(n_enn.gpoint)
             self.priority = n_enn.priority
             self.tclass = n_enn.tclass
@@ -100,9 +102,9 @@ class PlannerEnv(gym.Env):
             self.diagstatus = n_ent.diagstatus
 
         def update_gpose(self, n_pose):
-            if self.id =='UGV':
+            if self.id == 'UGV':
                 # 28/10/2020: Add 3.5 to UGV
-                self.gpoint = Point(x=n_pose.x, y=n_pose.y, z=n_pose.z+3.5)
+                self.gpoint = Point(x=n_pose.x, y=n_pose.y, z=n_pose.z + 3.5)
             else:
                 self.gpoint = Point(x=n_pose.x, y=n_pose.y, z=n_pose.z)
             self._pos = point_to_pos(self.gpoint)
@@ -232,7 +234,8 @@ class PlannerEnv(gym.Env):
     #     self.takePathPub.publish(msg)
 
     def take_goal_path(self, entity_id, path, goal):
-        self.node.get_logger().info('Entity:' + entity_id + " should take the path:" + path.name + " to reach: " + goal.__str__())
+        self.node.get_logger().info(
+            'Entity:' + entity_id + " should take the path:" + path.name + " to reach: " + goal.__str__())
         msg = SGoalAndPath()
         msg.goal = goal  # Point
         msg.path = path  # OPath
@@ -267,7 +270,6 @@ class PlannerEnv(gym.Env):
         finally:
             print("nothing")
 
-
     # entity1 = {'Entity:Suicide'}
     # entity2 = {'Entity:Drone'}
     # match_los[enemy_id].append(entity1)
@@ -275,22 +277,23 @@ class PlannerEnv(gym.Env):
     #   match_los = {enemy_id: [{}], enemy+id: [{}],}
     def compute_all_los(self):
         self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.WARN)
-        #match_los = {}
+        # match_los = {}
         for enemy in [ene for ene in self.enemies if ene.is_alive]:
             this_enemy = enemy
             one = this_enemy.gpoint
-            #onePsik =  Point(x=one.y, y=one.x, z=one.z)
-           # match_los[this_enemy.id] = []
+            # onePsik =  Point(x=one.y, y=one.x, z=one.z)
+            # match_los[this_enemy.id] = []
             # for entity in self.entities:
             #     two = entity.gpoint
-            #twoPsik = Point(x=two.y, y=two.x, z=two.z)
+            # twoPsik = Point(x=two.y, y=two.x, z=two.z)
             entity = self.entities_queue.popleft()
             two = entity.gpoint
             try:
                 start = time.time()
-                answer = check_line_of_sight(one,two)
-                self.keep_los_recording(one, two, answer)
-                if answer: #check_line_of_sight(one, two):
+                answer = check_line_of_sight(one, two)
+                self.keep_los_recording(entity.pos.x, entity.pos.y, entity.pos.z, enemy.pos.x, enemy.pos.y, enemy.pos.z,
+                                        answer)
+                if answer:  # check_line_of_sight(one, two):
                     ### moshe melachlech
                     if entity.id == 'Suicide':
                         moshe_melachlech_distance_parameter = 30
@@ -298,19 +301,20 @@ class PlannerEnv(gym.Env):
                         moshe_melachlech_distance_parameter = 100
                     moshe_melachlech_epsilon_parameter = 0.005
                     dist = entity.pos.distance_to(enemy.pos)
-                    #rand = random.random()
-                    self.node.get_logger().warning('enemy:' + this_enemy.id + ' entity:'+ entity.id + " dist:"+ ascii(dist))
-                    #self.node.get_logger().warning('enemy:' + this_enemy.id + ' entity:'+ entity.id + " dist:"+ ascii(dist)+ " rand:"+ascii(rand))
-                    #if math.sqrt(((enemy.pos.x - entity.pos.x) ** 2) + ((enemy.pos.y - entity.pos.y) ** 2) + ((enemy.pos.z - entity.pos.z) ** 2)) < moshe_melachlech_distance_parameter and random.random()< moshe_melachlech_epsilon_parameter:
-                    #if entity.pos.distance_to(enemy.pos) < moshe_melachlech_distance_parameter and rand < moshe_melachlech_epsilon_parameter:
+                    # rand = random.random()
+                    self.node.get_logger().warning(
+                        'enemy:' + this_enemy.id + ' entity:' + entity.id + " dist:" + ascii(dist))
+                    # self.node.get_logger().warning('enemy:' + this_enemy.id + ' entity:'+ entity.id + " dist:"+ ascii(dist)+ " rand:"+ascii(rand))
+                    # if math.sqrt(((enemy.pos.x - entity.pos.x) ** 2) + ((enemy.pos.y - entity.pos.y) ** 2) + ((enemy.pos.z - entity.pos.z) ** 2)) < moshe_melachlech_distance_parameter and random.random()< moshe_melachlech_epsilon_parameter:
+                    # if entity.pos.distance_to(enemy.pos) < moshe_melachlech_distance_parameter and rand < moshe_melachlech_epsilon_parameter:
                     if entity.pos.distance_to(enemy.pos) < moshe_melachlech_distance_parameter:
                         ### end of moshe melachlech
                         res = False
                         for x in self.match_los[this_enemy.id]:
                             if x == entity.id:
-                                res=True
+                                res = True
                                 break
-                        if res==False:
+                        if res == False:
                             self.match_los[this_enemy.id].append(entity.id)
                         if not entity.is_los_enemy(this_enemy):
                             if this_enemy.is_alive:
@@ -321,7 +325,7 @@ class PlannerEnv(gym.Env):
                             self.match_los[this_enemy.id].remove(entity.id)
                     if entity.is_los_enemy(this_enemy):
                         entity._los_enemies.remove(this_enemy)
-                self.node.get_logger().debug('duration:' + ascii(time.time()-start))
+                self.node.get_logger().debug('duration:' + ascii(time.time() - start))
             except RuntimeError:
                 self.node.get_logger().error('Problems with LOS Service... Do Restart Simulation and Planner')
                 self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
@@ -382,7 +386,7 @@ class PlannerEnv(gym.Env):
         self.entityOverallHealthSub = self.node.create_subscription(SHealth, '/entity/overall_health',
                                                                     self.entity_overall_health_callback, 10)
         self.entityTwistSub = self.node.create_subscription(STwist, '/entity/twist',
-                                                                    self.entity_twist_callback, 10)
+                                                            self.entity_twist_callback, 10)
         # Publish topics
         self.moveToPub = self.node.create_publisher(SGlobalPose, '/entity/moveto/goal', 10)
         self.attackPub = self.node.create_publisher(SGlobalPose, '/entity/attack/goal', 10)
@@ -404,9 +408,9 @@ class PlannerEnv(gym.Env):
     def render(self, mode='human'):
         pass
 
-    def keep_los_recording(self, one, two, los):
+    def keep_los_recording(self, x1, y1, z1, x2, y2, z2, los):
         f = open(self.recordlosfn, "a")
-        curr_string = one.__str__()+"," + two.__str__() + "," + los.__str__() + "\n"
+        curr_string = '{},{},{},{},{},{},{}\n'.format(x1, y1, z1, x2, y2, z2, los)
         f.write(curr_string)
         f.close()
 
@@ -436,7 +440,7 @@ class PlannerEnv(gym.Env):
             else:
                 self.simOn = False
 
-        #Restart simulation
+        # Restart simulation
         ret = act_on_simulation(ascii(START))
         if ret != START:
             print("Couldn't start the simulation")
@@ -538,15 +542,18 @@ class PlannerEnv(gym.Env):
             if not enemy.is_alive:
                 num_of_dead_enemies = num_of_dead_enemies + 1
 
-        #if num_of_dead_enemies / num_of_enemies > threshold:
+        # if num_of_dead_enemies / num_of_enemies > threshold:
         if num_of_dead_enemies > 0:
             done = True
 
         if done == True:
             reset = 'goal achieved'
-            print('----------------', reset, '--------dead enemies:', ascii(num_of_dead_enemies),'--------dead entities:', ascii(suicide_has_suicide) )
-            logging.info('----------------'+reset+'--------dead enemies:'+ ascii(num_of_dead_enemies)+'--------dead entities:'+ ascii(suicide_has_suicide) )
-            self.node.get_logger().info('----------------'+reset+'--------dead enemies:'+ ascii(num_of_dead_enemies)+'--------dead entities:'+ascii(suicide_has_suicide) )
+            print('----------------', reset, '--------dead enemies:', ascii(num_of_dead_enemies),
+                  '--------dead entities:', ascii(suicide_has_suicide))
+            logging.info('----------------' + reset + '--------dead enemies:' + ascii(
+                num_of_dead_enemies) + '--------dead entities:' + ascii(suicide_has_suicide))
+            self.node.get_logger().info('----------------' + reset + '--------dead enemies:' + ascii(
+                num_of_dead_enemies) + '--------dead entities:' + ascii(suicide_has_suicide))
 
             # nret = act_on_simulation(ascii(STOP))
             # if nret != STOP:
@@ -575,7 +582,7 @@ class PlannerEnv(gym.Env):
                     entity_id = elm
                     goal = PointStamped()
                     lon, lat, alt = act[entity_id][0].toLongLatAlt()
-                    goal.point = Point(x = lat, y = lon, z = alt)
+                    goal.point = Point(x=lat, y=lon, z=alt)
                     self.move_entity_to_goal(entity_id, goal)
                     # self._actions['MOVE_TO'].remove(elm)
         for act in self._actions['LOOK_AT']:
@@ -585,18 +592,20 @@ class PlannerEnv(gym.Env):
                     entity_id = elm
                     goal = PointStamped()
                     lon, lat, alt = act[entity_id][0].toLongLatAlt()
-                    goal.point = Point(x = lat, y = lon, z = alt)
+                    goal.point = Point(x=lat, y=lon, z=alt)
                     self.look_at_goal(entity_id, goal)
                     # self._actions['LOOK_AT'].remove(elm)
         for act in self._actions['ATTACK']:
             if len(act) > 0:
                 for elm in act:
-                    #entity_id = elm.popitem()[0]  # get key of dictionary
-                    entity_id=elm
-                    self.node.get_logger().info('Entity:' + entity_id + " attack at:" + ascii(act[entity_id][0].x) +", "+ ascii(act[entity_id][0].y) +", " +ascii(act[entity_id][0].z))
+                    # entity_id = elm.popitem()[0]  # get key of dictionary
+                    entity_id = elm
+                    self.node.get_logger().info(
+                        'Entity:' + entity_id + " attack at:" + ascii(act[entity_id][0].x) + ", " + ascii(
+                            act[entity_id][0].y) + ", " + ascii(act[entity_id][0].z))
                     goal = PointStamped()
-                    lon,lat,alt = act[entity_id][0].toLongLatAlt()
-                    goal.point = Point(x = lat, y = lon, z = alt)
+                    lon, lat, alt = act[entity_id][0].toLongLatAlt()
+                    goal.point = Point(x=lat, y=lon, z=alt)
                     if entity_id == 'UGV':
                         self.attack_goal(entity_id, goal)
                     else:
@@ -612,7 +621,7 @@ class PlannerEnv(gym.Env):
                     path.name = path_name
                     # Here goal is Point
                     lon, lat, alt = act[entity_id][1].toLongLatAlt()
-                    goal_point = Point(x = lat, y = lon, z = alt)
+                    goal_point = Point(x=lat, y=lon, z=alt)
                     self.take_goal_path(entity_id, path, goal_point)
                     # self._actions['TAKE_PATH'].remove(elm)
 

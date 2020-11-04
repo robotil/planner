@@ -113,7 +113,7 @@ def sim_enemy(enemy):
 # ENEMY_POS = Pos(29.999796, 33.0004159, 0.0447149366)
 class PlannerScenarioEnv(gym.Env):
     SUICIDE_FLIGHT_HEIGHT = 20.0
-    OBSERVER_FLIGHT_HEIGHT = 25.0
+    OBSERVER_FLIGHT_HEIGHT = 22.0
     MAX_DISTANCE_TO_ENEMY = 100.0
 
     SUICIDE_ATTACKING_DISTANCE = 15.0
@@ -656,6 +656,7 @@ class PlannerScenarioEnv(gym.Env):
                 [self._suicide_drone, self._sensor_drone, self._ugv])
             if len(entities_with_los_to_enemy) > 0:
                 # ENEMY FOUND !!!
+                print('********** We Have Visual!!!! ************')
                 suicide_distance_to_enemy = self._suicide_drone.pos.distance_to(self._sniper.pos)
 
                 immediate_reward += (PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY - suicide_distance_to_enemy) \
@@ -820,71 +821,86 @@ def main(args=None, run_stable_baselines_agent=False):
     planner_scenario_env = PlannerScenarioEnv()
     end_of_session = False
     experience_buffer = []
-    session_num = 1
+    session_num = 10
 
     if run_stable_baselines_agent:
         log_dir = 'tmp_log/'
+        # log_dir = '/home/iaiai/git/ros2ws/src/planner/planner/envs/plannerEnvs_dir/tmp_log'
         os.makedirs(log_dir, exist_ok=True)
-        monitored_env = Monitor(planner_scenario_env, log_dir)
+        # monitored_env = Monitor(planner_scenario_env, log_dir)
         callback = SaveOnBestTrainingRewardCallback(check_freq=10, log_dir=log_dir)
-        model = PPO2(MlpPolicy, monitored_env, verbose=1)
+        logger.configure(folder=log_dir, format_strs=['stdout', 'log', 'csv', 'tensorboard'])
+        print(logger.get_dir())
+
+        model = PPO2(MlpPolicy, planner_scenario_env, verbose=2, full_tensorboard_log=True, tensorboard_log=log_dir)
         time_steps = 5000
-        model.learn(total_timesteps=time_steps, log_interval=10, callback=callback)
+        model.learn(total_timesteps=time_steps, log_interval=1, callback=callback)
         model.save("ppo_planner_scenario_model")
-        results_plotter.plot_results([log_dir], time_steps, results_plotter.X_TIMESTEPS, "ppo_planner_scenario_results")
-        plt.show()
+        # results_plotter.plot_results([log_dir], time_steps, results_plotter.X_TIMESTEPS, "ppo_planner_scenario_results")
+        # plt.show()
     else:
-        while not end_of_session:
-            num_step = 0
-            action = 0
-            done = False
-            obs = planner_scenario_env.reset()
-            trainer_root.info(
-                'SESSION: {} initial state suicide {} sensor {} ugv {} sniper {}'.format(session_num, obs[0], obs[1],
-                                                                                         obs[2], obs[3]))
+        ep_reward = []
+        done = False
+        obs = planner_scenario_env.reset()
+        for act in range(session_num):
+            obs, reward, done, _ = planner_scenario_env.step(act%2)
+            ep_reward.append(reward)
+        print(ep_reward)
 
-            while not done:
-                num_step += 1
-                action = (action + random.randint(action,
-                                                  PlannerScenarioEnv.NUM_ACTIONS - 1)) % PlannerScenarioEnv.NUM_ACTIONS
-                trainer_root.debug('action selected {}'.format(action))
-                obs, reward, done, _ = planner_scenario_env.step(action)
-                trainer_root.debug(
-                    'state OUTER STEP {} suicide {} sensor {} ugv {} sniper {}'.format(num_step, obs[0], obs[1], obs[2],
-                                                                                       obs[3]))
-                trainer_root.critical('OUTER STEP {} reward {}'.format(num_step, reward))
-
-                if len(experience_buffer) > 0:
-                    # save current state as next state to previous experience
-                    experience_buffer[-1][2] = obs
-                # save current state and action
-                experience_buffer.append([obs, action, np.zeros(shape=(4, 3), dtype=np.float16), reward])
-
-            with open('/tmp/outer_experience.txt', 'a') as f:
-                f.write("----------" + now.strftime("%Y-%m-%d-%H:%M:%S") + "----------\n"
-                                                                           ".")
-                for experience in experience_buffer:
-                    f.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n"
-                            .format(experience[0][0][0], experience[0][0][1], experience[0][0][2],
-                                    experience[0][1][0], experience[0][1][1], experience[0][1][2],
-                                    experience[0][2][0], experience[0][2][1], experience[0][2][2],
-                                    experience[0][3][0], experience[0][3][1], experience[0][3][2],
-                                    experience[1],
-                                    experience[2][0][0], experience[2][0][1], experience[2][0][2],
-                                    experience[2][1][0], experience[2][1][1], experience[2][1][2],
-                                    experience[2][2][0], experience[2][2][1], experience[2][2][2],
-                                    experience[2][3][0], experience[2][3][1], experience[2][3][2],
-                                    experience[3]))
-
-            trainer_root.info('episode done! reward {}'.format(reward))
-            f = open("results.csv", "a")
-            curr_string = datetime.datetime.now().__str__() + "," + reward.__str__() + "," + num_step.__str__() + "\n"
-            f.write(curr_string)
-            f.close()
-            session_num += 1
-            if session_num > 10000:
-                end_of_session = True
+        if session_num > 10000:
+            end_of_session = True
+    # else:
+    #     while not end_of_session:
+    #         num_step = 0
+    #         action = 0
+    #         done = False
+    #         obs = planner_scenario_env.reset()
+    #         trainer_root.info(
+    #             'SESSION: {} initial state suicide {} sensor {} ugv {} sniper {}'.format(session_num, obs[0], obs[1],
+    #                                                                                      obs[2], obs[3]))
+    #
+    #         while not done:
+    #             num_step += 1
+    #             action = (action + random.randint(action,
+    #                                               PlannerScenarioEnv.NUM_ACTIONS - 1)) % PlannerScenarioEnv.NUM_ACTIONS
+    #             trainer_root.debug('action selected {}'.format(action))
+    #             obs, reward, done, _ = planner_scenario_env.step(action)
+    #             trainer_root.debug(
+    #                 'state OUTER STEP {} suicide {} sensor {} ugv {} sniper {}'.format(num_step, obs[0], obs[1], obs[2],
+    #                                                                                    obs[3]))
+    #             trainer_root.critical('OUTER STEP {} reward {}'.format(num_step, reward))
+    #
+    #             if len(experience_buffer) > 0:
+    #                 # save current state as next state to previous experience
+    #                 experience_buffer[-1][2] = obs
+    #             # save current state and action
+    #             experience_buffer.append([obs, action, np.zeros(shape=(4, 3), dtype=np.float16), reward])
+    #
+    #         with open('/tmp/outer_experience.txt', 'a') as f:
+    #             f.write("----------" + now.strftime("%Y-%m-%d-%H:%M:%S") + "----------\n"
+    #                                                                        ".")
+    #             for experience in experience_buffer:
+    #                 f.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n"
+    #                         .format(experience[0][0][0], experience[0][0][1], experience[0][0][2],
+    #                                 experience[0][1][0], experience[0][1][1], experience[0][1][2],
+    #                                 experience[0][2][0], experience[0][2][1], experience[0][2][2],
+    #                                 experience[0][3][0], experience[0][3][1], experience[0][3][2],
+    #                                 experience[1],
+    #                                 experience[2][0][0], experience[2][0][1], experience[2][0][2],
+    #                                 experience[2][1][0], experience[2][1][1], experience[2][1][2],
+    #                                 experience[2][2][0], experience[2][2][1], experience[2][2][2],
+    #                                 experience[2][3][0], experience[2][3][1], experience[2][3][2],
+    #                                 experience[3]))
+    #
+    #         trainer_root.info('episode done! reward {}'.format(reward))
+    #         f = open("results.csv", "a")
+    #         curr_string = datetime.datetime.now().__str__() + "," + reward.__str__() + "," + num_step.__str__() + "\n"
+    #         f.write(curr_string)
+    #         f.close()
+    #         session_num += 1
+    #         if session_num > 10000:
+    #             end_of_session = True
 
 
 if __name__ == '__main__':
-    main(run_stable_baselines_agent=True)
+    main(run_stable_baselines_agent=False)
