@@ -612,7 +612,8 @@ class PlannerScenarioEnv(gym.Env):
                 self.rootlog.warning('Episode Experience is empty')
             # save episode experience replay to file
             now = datetime.datetime.now()
-            with open('/tmp/experience.txt', 'a') as f:
+            file = '/tmp/'+self.plannerEnv.ros_domain_id+'/experience.txt'
+            with open(file, 'a') as f:
                 f.write("----------" + now.strftime("%Y-%m-%d-%H:%M:%S") + "----------\n"
                                                                            ".")
                 for experience in self._episode_experience:
@@ -714,7 +715,8 @@ class PlannerScenarioEnv(gym.Env):
                     self.rootlog.warning('Episode Experience is empty')
                 # save episode experience replay to file
                 now = datetime.datetime.now()
-                with open('/tmp/experience.txt', 'a') as f:
+                file = '/tmp/' + self.plannerEnv.ros_domain_id + '/experience.txt'
+                with open(file, 'a') as f:
                     f.write("----------" + now.strftime("%Y-%m-%d-%H:%M:%S") + "----------\n"
                                                                                ".")
                     for experience in self._episode_experience:
@@ -779,11 +781,6 @@ class SaveOnBestTrainingRewardCallback(BaseCallback):
                 print("Num timesteps: {}".format(self.num_timesteps))
                 print("Best mean reward: {:.2f} - Last mean reward per episode: {:.2f}".format(self.best_mean_reward, mean_reward))
 
-              results_plotter.plot_results([self.log_dir], self.num_timesteps, results_plotter.X_TIMESTEPS,
-                                           "ppo_planner_scenario_results")
-              plt.show()
-
-
               # New best model, you could save the agent here
               if mean_reward > self.best_mean_reward:
                   self.best_mean_reward = mean_reward
@@ -821,7 +818,7 @@ def main(args=None, run_stable_baselines_agent=False):
     planner_scenario_env = PlannerScenarioEnv()
     end_of_session = False
     experience_buffer = []
-    session_num = 10
+    session_num = 10000
 
     if run_stable_baselines_agent:
         log_dir = 'tmp_log/'
@@ -839,13 +836,15 @@ def main(args=None, run_stable_baselines_agent=False):
         # results_plotter.plot_results([log_dir], time_steps, results_plotter.X_TIMESTEPS, "ppo_planner_scenario_results")
         # plt.show()
     else:
-        ep_reward = []
-        done = False
-        obs = planner_scenario_env.reset()
         for act in range(session_num):
-            obs, reward, done, _ = planner_scenario_env.step(act%2)
-            ep_reward.append(reward)
-        print(ep_reward)
+            ep_reward = []
+            done = False
+            obs = planner_scenario_env.reset()
+            while not done:
+                obs, reward, done, _ = planner_scenario_env.step(act%2)
+                ep_reward.append(reward)
+
+            print(np.sum(ep_reward))
 
         if session_num > 10000:
             end_of_session = True
@@ -903,4 +902,5 @@ def main(args=None, run_stable_baselines_agent=False):
 
 
 if __name__ == '__main__':
-    main(run_stable_baselines_agent=False)
+    #ros_domain_id = 2
+    main(run_stable_baselines_agent=True)

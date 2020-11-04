@@ -28,6 +28,8 @@ from planner.sim_services import check_line_of_sight, get_all_possible_ways
 from collections import deque
 import logging
 import random
+import pathlib
+import os
 
 STOP = 0
 START = 1
@@ -394,7 +396,15 @@ class PlannerEnv(gym.Env):
         self.takePathPub = self.node.create_publisher(SPath, '/entity/takepath', 10)
         self.takeGoalPathPub = self.node.create_publisher(SGoalAndPath, '/entity/followpath/goal', 10)
         self.num_of_dead_enemies = 0
-        self.recordlosfn = 'record-los.csv'
+        if  os.environ.get('ROS_DOMAIN_ID') == None:
+            ros_domain_id = 0
+        else:
+            ros_domain_id = os.environ.get('ROS_DOMAIN_ID')
+        self.ros_domain_id = ros_domain_id
+        self.recordlosfn = '/tmp/'+ros_domain_id
+        path = pathlib.Path(self.recordlosfn)
+        path.mkdir(mode=0o777, parents=True, exist_ok=True)
+        self.recordlosfn = '/tmp/'+ros_domain_id +'/record-los.csv'
 
         #       self.node.create_rate(10.0)
         #        rclpy.spin(self.node)
