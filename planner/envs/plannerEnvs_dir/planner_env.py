@@ -69,7 +69,7 @@ class PlannerEnv(gym.Env):
         def update(self, n_enn):
             self.cep = n_enn.cep
             # 28/10/2020: Add 1.5 to the sniper, i.e all enemies
-            self.gpoint = Point(x=n_enn.gpoint.x, y=n_enn.gpoint.y, z=n_enn.gpoint.z + 1.5)
+            self.gpoint = Point(x=n_enn.gpoint.x, y=n_enn.gpoint.y, z=n_enn.gpoint.z + 1.7)
             self._pos = point_to_pos(n_enn.gpoint)
             self.priority = n_enn.priority
             self.tclass = n_enn.tclass
@@ -108,7 +108,7 @@ class PlannerEnv(gym.Env):
                 # 28/10/2020: Add 3.5 to UGV
                 self.gpoint = Point(x=n_pose.x, y=n_pose.y, z=n_pose.z + 3.5)
             else:
-                self.gpoint = Point(x=n_pose.x, y=n_pose.y, z=n_pose.z)
+                self.gpoint = Point(x=n_pose.x, y=n_pose.y, z=n_pose.z - 1.0)
             self._pos = point_to_pos(self.gpoint)
 
         def update_imu(self, n_imu):
@@ -171,8 +171,8 @@ class PlannerEnv(gym.Env):
                 break
         if not res:
             self.entities.append(a)
-            if not a.id == 'UGV':
-                self.entities_queue.append(a)
+            # if not a.id == 'UGV':
+            self.entities_queue.append(a)
 
         self.node.get_logger().debug('Received: "%s"' % msg)
 
@@ -288,54 +288,58 @@ class PlannerEnv(gym.Env):
             # for entity in self.entities:
             #     two = entity.gpoint
             # twoPsik = Point(x=two.y, y=two.x, z=two.z)
-            entity = self.entities_queue.popleft()
-            two = entity.gpoint
-            try:
-                start = time.time()
-                answer = check_line_of_sight(one, two)
-                self.keep_los_recording(entity.pos.x, entity.pos.y, entity.pos.z, enemy.pos.x, enemy.pos.y, enemy.pos.z,
-                                        answer)
-                if answer:  # check_line_of_sight(one, two):
-                    ### moshe melachlech
-                    if entity.id == 'Suicide':
-                        moshe_melachlech_distance_parameter = 30
+            for entity in self.entities_queue:
+            # while self.entities_queue:
+            #     entity = self.entities_queue.popleft()
+                two = entity.gpoint
+                try:
+                    start = time.time()
+                    answer = check_line_of_sight(one, two)
+                    self.keep_los_recording(entity.pos.x, entity.pos.y, entity.pos.z, enemy.pos.x, enemy.pos.y, enemy.pos.z,
+                                            answer)
+                    if answer:  # check_line_of_sight(one, two):
+                        ### moshe melachlech
+                        if entity.id == 'Suicide':
+                            moshe_melachlech_distance_parameter = 30
+                        else:
+                            moshe_melachlech_distance_parameter = 100
+                        moshe_melachlech_epsilon_parameter = 0.005
+                        dist = entity.pos.distance_to(enemy.pos)
+                        # rand = random.random()
+                        self.node.get_logger().warning(
+                            'enemy:' + this_enemy.id + ' entity:' + entity.id + " dist:" + ascii(dist))
+                        # self.node.get_logger().warning('enemy:' + this_enemy.id + ' entity:'+ entity.id + " dist:"+ ascii(dist)+ " rand:"+ascii(rand))
+                        # if math.sqrt(((enemy.pos.x - entity.pos.x) ** 2) + ((enemy.pos.y - entity.pos.y) ** 2) + ((enemy.pos.z - entity.pos.z) ** 2)) < moshe_melachlech_distance_parameter and random.random()< moshe_melachlech_epsilon_parameter:
+                        # if entity.pos.distance_to(enemy.pos) < moshe_melachlech_distance_parameter and rand < moshe_melachlech_epsilon_parameter:
+                        if entity.pos.distance_to(enemy.pos) < moshe_melachlech_distance_parameter:
+                            # nret = act_on_simulation(ascii(PAUSE))
+                            # nret = act_on_simulation(ascii(RUN))
+                            ### end of moshe melachlech
+                            res = False
+                            for x in self.match_los[this_enemy.id]:
+                                if x == entity.id:
+                                    res = True
+                                    break
+                            if res == False:
+                                self.match_los[this_enemy.id].append(entity.id)
+                            if not entity.is_los_enemy(this_enemy):
+                                if this_enemy.is_alive:
+                                    entity._los_enemies.append(this_enemy)
                     else:
-                        moshe_melachlech_distance_parameter = 100
-                    moshe_melachlech_epsilon_parameter = 0.005
-                    dist = entity.pos.distance_to(enemy.pos)
-                    # rand = random.random()
-                    self.node.get_logger().warning(
-                        'enemy:' + this_enemy.id + ' entity:' + entity.id + " dist:" + ascii(dist))
-                    # self.node.get_logger().warning('enemy:' + this_enemy.id + ' entity:'+ entity.id + " dist:"+ ascii(dist)+ " rand:"+ascii(rand))
-                    # if math.sqrt(((enemy.pos.x - entity.pos.x) ** 2) + ((enemy.pos.y - entity.pos.y) ** 2) + ((enemy.pos.z - entity.pos.z) ** 2)) < moshe_melachlech_distance_parameter and random.random()< moshe_melachlech_epsilon_parameter:
-                    # if entity.pos.distance_to(enemy.pos) < moshe_melachlech_distance_parameter and rand < moshe_melachlech_epsilon_parameter:
-                    if entity.pos.distance_to(enemy.pos) < moshe_melachlech_distance_parameter:
-                        ### end of moshe melachlech
-                        res = False
                         for x in self.match_los[this_enemy.id]:
                             if x == entity.id:
-                                res = True
-                                break
-                        if res == False:
-                            self.match_los[this_enemy.id].append(entity.id)
-                        if not entity.is_los_enemy(this_enemy):
-                            if this_enemy.is_alive:
-                                entity._los_enemies.append(this_enemy)
-                else:
-                    for x in self.match_los[this_enemy.id]:
-                        if x == entity.id:
-                            self.match_los[this_enemy.id].remove(entity.id)
-                    if entity.is_los_enemy(this_enemy):
-                        entity._los_enemies.remove(this_enemy)
-                self.node.get_logger().debug('duration:' + ascii(time.time() - start))
-            except RuntimeError:
-                self.node.get_logger().error('Problems with LOS Service... Do Restart Simulation and Planner')
-                self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
-                raise
-            except KeyboardInterrupt:
-                act_on_simulation(ascii(STOP))
-                self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
-            self.entities_queue.append(entity)
+                                self.match_los[this_enemy.id].remove(entity.id)
+                        if entity.is_los_enemy(this_enemy):
+                            entity._los_enemies.remove(this_enemy)
+                    self.node.get_logger().debug('duration:' + ascii(time.time() - start))
+                except RuntimeError:
+                    self.node.get_logger().error('Problems with LOS Service... Do Restart Simulation and Planner')
+                    self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
+                    raise
+                except KeyboardInterrupt:
+                    act_on_simulation(ascii(STOP))
+                    self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
+            # self.entities_queue.append(entity)
             self.node.get_logger().set_level(rclpy.logging.LoggingSeverity.UNSET)
         return self.match_los
 

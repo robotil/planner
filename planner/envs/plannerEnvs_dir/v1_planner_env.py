@@ -30,7 +30,7 @@ from logic_simulator.sensor_drone import SensorDrone as lg_scn_drone
 from logic_simulator.suicide_drone import SuicideDrone as lg_scd_drone
 from logic_simulator.ugv import Ugv as lg_ugv
 from logic_simulator.pos import Pos
-import copy as VRwps
+import copy
 import datetime
 from keras.models import load_model
 from matplotlib import pyplot as plt
@@ -211,26 +211,39 @@ class PlannerScenarioEnv(gym.Env):
         lg_ugv.paths['Path1'] = positions_dict['Path1']
         lg_ugv.paths['Path2'] = positions_dict['Path2']
 
-        PlannerScenarioEnv.UGV_START_POS = VRwps.copy(lg_ugv.paths['Path1'][0])
-        PlannerScenarioEnv.SENSOR_DRONE_START_POS = VRwps.copy(lg_ugv.paths['Path1'][0])
-        PlannerScenarioEnv.SUICIDE_DRONE_START_POS = VRwps.copy(PlannerScenarioEnv.SENSOR_DRONE_START_POS)
+        PlannerScenarioEnv.UGV_START_POS = copy.copy(lg_ugv.paths['Path1'][0])
+        PlannerScenarioEnv.SENSOR_DRONE_START_POS = copy.copy(lg_ugv.paths['Path1'][0])
+        PlannerScenarioEnv.SUICIDE_DRONE_START_POS = copy.copy(PlannerScenarioEnv.SENSOR_DRONE_START_POS)
 
         PlannerScenarioEnv.SENSOR_DRONE_START_POS.z = PlannerScenarioEnv.OBSERVER_FLIGHT_HEIGHT
         PlannerScenarioEnv.SUICIDE_DRONE_START_POS.z = PlannerScenarioEnv.SUICIDE_FLIGHT_HEIGHT
 
         PlannerScenarioEnv.SOUTH_WEST_UGV_POS = lg_ugv.paths['Path1'][-1]
+        PlannerScenarioEnv.NORTH_WEST_SUICIDE = copy.copy(positions_dict['Waypoint 49'])
+        PlannerScenarioEnv.NORTH_EAST_SUICIDE = copy.copy(positions_dict['Waypoint 76'])
+        PlannerScenarioEnv.SOUTH_EAST_SUICIDE = copy.copy(positions_dict['Waypoint 49'])
+        PlannerScenarioEnv.SOUTH_WEST_SUICIDE = copy.copy(positions_dict['Waypoint 76'])
 
-        PlannerScenarioEnv.NORTH_WEST_SUICIDE = VRwps.copy(positions_dict['Waypoint 40'])
-        PlannerScenarioEnv.NORTH_WEST_OBSERVER = VRwps.copy(positions_dict['Waypoint 30'])
+        PlannerScenarioEnv.SOUTH_EAST_OBSERVER = copy.copy(positions_dict['Waypoint 40'])
+        PlannerScenarioEnv.NORTH_WEST_OBSERVER = copy.copy(positions_dict['Waypoint 41'])
+        PlannerScenarioEnv.SOUTH_WEST_OBSERVER = copy.copy(positions_dict['Waypoint 42'])
+        PlannerScenarioEnv.NORTH_EAST_OBSERVER = copy.copy(positions_dict['Waypoint 43'])
+        PlannerScenarioEnv.SOUTH_EAST_OBSERVER = copy.copy(positions_dict['Waypoint 53'])
+        PlannerScenarioEnv.NORTH_WEST_OBSERVER = copy.copy(positions_dict['Waypoint 93'])
+        PlannerScenarioEnv.SOUTH_WEST_OBSERVER = copy.copy(positions_dict['Waypoint 62'])
+        PlannerScenarioEnv.NORTH_EAST_OBSERVER = copy.copy(positions_dict['Waypoint 71'])
+        PlannerScenarioEnv.SOUTH_EAST_OBSERVER = copy.copy(positions_dict['Waypoint 80'])
+        PlannerScenarioEnv.NORTH_WEST_OBSERVER = copy.copy(positions_dict['Waypoint 89'])
+        PlannerScenarioEnv.SOUTH_WEST_OBSERVER = copy.copy(positions_dict['Waypoint 97'])
+        PlannerScenarioEnv.NORTH_EAST_OBSERVER = copy.copy(positions_dict['Waypoint 96'])
+        PlannerScenarioEnv.SOUTH_EAST_OBSERVER = copy.copy(positions_dict['Waypoint 95'])
+        PlannerScenarioEnv.NORTH_WEST_OBSERVER = copy.copy(positions_dict['Waypoint 94'])
+        PlannerScenarioEnv.SOUTH_WEST_OBSERVER = copy.copy(positions_dict['Waypoint 84'])
+        PlannerScenarioEnv.SOUTH_WEST_OBSERVER = copy.copy(positions_dict['Waypoint 75'])
+        PlannerScenarioEnv.SOUTH_WEST_OBSERVER = copy.copy(positions_dict['Waypoint 66'])
+        PlannerScenarioEnv.SOUTH_WEST_OBSERVER = copy.copy(positions_dict['Waypoint 57'])
+        PlannerScenarioEnv.SOUTH_WEST_OBSERVER = copy.copy(positions_dict['Waypoint 48'])
 
-        PlannerScenarioEnv.NORTH_EAST_SUICIDE = VRwps.copy(positions_dict['Waypoint 76'])
-        PlannerScenarioEnv.NORTH_EAST_OBSERVER = VRwps.copy(positions_dict['Waypoint 84'])
-
-        PlannerScenarioEnv.SOUTH_EAST_SUICIDE = VRwps.copy(positions_dict['Waypoint 79'])
-        PlannerScenarioEnv.SOUTH_EAST_OBSERVER = VRwps.copy(positions_dict['Waypoint 89'])
-
-        PlannerScenarioEnv.SOUTH_WEST_SUICIDE = VRwps.copy(positions_dict['Waypoint 43'])
-        PlannerScenarioEnv.SOUTH_WEST_OBSERVER = VRwps.copy(positions_dict['Waypoint 35'])
 
         # PlannerScenarioEnv.SOUTH_WEST_OBSERVER.z = PlannerScenarioEnv.OBSERVER_FLIGHT_HEIGHT
         # PlannerScenarioEnv.SOUTH_EAST_OBSERVER.z = PlannerScenarioEnv.OBSERVER_FLIGHT_HEIGHT
@@ -240,31 +253,30 @@ class PlannerScenarioEnv(gym.Env):
         # drone_height = PlannerScenarioEnv.OBSERVER_FLIGHT_HEIGHT
         drone_height = 15.0
 
-        PlannerScenarioEnv.NORTH_WEST_OBSERVER.z = drone_height
         PlannerScenarioEnv.SOUTH_WEST_OBSERVER.z = drone_height
         PlannerScenarioEnv.SOUTH_EAST_OBSERVER.z = drone_height
         PlannerScenarioEnv.NORTH_EAST_OBSERVER.z = drone_height
-
-
-        # PlannerScenarioEnv.SOUTH_WEST_SUICIDE.z = PlannerScenarioEnv.SUICIDE_FLIGHT_HEIGHT
-        # PlannerScenarioEnv.SOUTH_EAST_SUICIDE.z = PlannerScenarioEnv.SUICIDE_FLIGHT_HEIGHT
-        # PlannerScenarioEnv.NORTH_EAST_SUICIDE.z = PlannerScenarioEnv.SUICIDE_FLIGHT_HEIGHT
-        # PlannerScenarioEnv.NORTH_WEST_SUICIDE.z = PlannerScenarioEnv.SUICIDE_FLIGHT_HEIGHT
+        PlannerScenarioEnv.NORTH_WEST_OBSERVER.z = drone_height
 
         PlannerScenarioEnv.SOUTH_WEST_SUICIDE.z = drone_height
         PlannerScenarioEnv.SOUTH_EAST_SUICIDE.z = drone_height
         PlannerScenarioEnv.NORTH_EAST_SUICIDE.z = drone_height
         PlannerScenarioEnv.NORTH_WEST_SUICIDE.z = drone_height
 
+        # PlannerScenarioEnv.SOUTH_WEST_SUICIDE.z = PlannerScenarioEnv.SUICIDE_FLIGHT_HEIGHT
+        # PlannerScenarioEnv.SOUTH_EAST_SUICIDE.z = PlannerScenarioEnv.SUICIDE_FLIGHT_HEIGHT
+        # PlannerScenarioEnv.NORTH_EAST_SUICIDE.z = PlannerScenarioEnv.SUICIDE_FLIGHT_HEIGHT
+        # PlannerScenarioEnv.NORTH_WEST_SUICIDE.z = PlannerScenarioEnv.SUICIDE_FLIGHT_HEIGHT
+
         PlannerScenarioEnv.SUICIDE_WPS = [PlannerScenarioEnv.NORTH_WEST_SUICIDE,
                                           PlannerScenarioEnv.NORTH_EAST_SUICIDE,
                                           PlannerScenarioEnv.SOUTH_EAST_SUICIDE,
                                           PlannerScenarioEnv.SOUTH_WEST_SUICIDE]
 
-        PlannerScenarioEnv.OBSERVER_WPS = [PlannerScenarioEnv.NORTH_EAST_OBSERVER,
-                                           PlannerScenarioEnv.SOUTH_EAST_OBSERVER,
+        PlannerScenarioEnv.OBSERVER_WPS = [PlannerScenarioEnv.NORTH_WEST_OBSERVER,
+                                           PlannerScenarioEnv.NORTH_EAST_OBSERVER,
                                            PlannerScenarioEnv.SOUTH_WEST_OBSERVER,
-                                           PlannerScenarioEnv.NORTH_WEST_OBSERVER]
+                                           PlannerScenarioEnv.SOUTH_EAST_OBSERVER]
 
         PlannerScenarioEnv.WEST_WINDOW_POS = positions_dict['Window1']
         PlannerScenarioEnv.NORTH_WINDOW_POS = positions_dict['House3']
@@ -573,24 +585,18 @@ class PlannerScenarioEnv(gym.Env):
             entities_with_los_to_enemy = self.line_of_sight_to_enemy([self._suicide_drone,
                                                                       self._sensor_drone,
                                                                       self._ugv])
-            if len(entities_with_los_to_enemy) > 0:
-            #     # ENEMY FOUND !!!
-            #     self._move_commanded = False
-                # self.attack_enemy(action_list, entities_with_los_to_enemy)
-                pass
 
-            else:  # elif not all_entities_positioned:
                 # MOVE TO INDICATION TARGET
-                if not move_to_indication_target_commanded:
-                    move_to_indication_target_commanded = True
-                    self.move_to_indication_target(action_list)
+            if not move_to_indication_target_commanded:
+                move_to_indication_target_commanded = True
+                self.move_to_indication_target(action_list)
 
-                all_entities_positioned = self.is_entity_positioned(self._suicide_drone,
-                                                                    PlannerScenarioEnv.NORTH_WEST_SUICIDE) and \
-                                          self.is_entity_positioned(self._sensor_drone,
-                                                                    PlannerScenarioEnv.NORTH_EAST_OBSERVER) and \
-                                          self.is_entity_positioned(self._ugv,
-                                                                    PlannerScenarioEnv.SOUTH_WEST_UGV_POS)
+            all_entities_positioned = self.is_entity_positioned(self._suicide_drone,
+                                                                PlannerScenarioEnv.NORTH_WEST_SUICIDE) and \
+                                      self.is_entity_positioned(self._sensor_drone,
+                                                                PlannerScenarioEnv.NORTH_EAST_OBSERVER) and \
+                                      self.is_entity_positioned(self._ugv,
+                                                                PlannerScenarioEnv.SOUTH_WEST_UGV_POS)
 
             # Execute Actions in simulation
             try:
@@ -673,21 +679,24 @@ class PlannerScenarioEnv(gym.Env):
             # List the enemies in line of sight
             entities_with_los_to_enemy = self.line_of_sight_to_enemy(
                 [self._suicide_drone, self._sensor_drone, self._ugv])
-            if len(entities_with_los_to_enemy) > 0:
 
-                # ENEMY FOUND !!!
-                suicide_distance_to_enemy = self._suicide_drone.pos.distance_to(self._sniper.pos)
-                ## reward is higher when suicide is closer to target during LOS
-                immediate_reward += (PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY - suicide_distance_to_enemy) \
-                                    / PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY
-                immediate_reward += (PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY - suicide_distance_to_enemy) \
-                                    / PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY
+            for los_ent in entities_with_los_to_enemy:
 
-                # TODO uncomment these if you are fascist
-                self._move_commanded = False
-                self.attack_enemy(action_list, entities_with_los_to_enemy)
-            else:
-                self.ambush_on_indication_target(action_list)
+
+                if los_ent.id == 'observer_drone':
+                    # ENEMY FOUND !!!
+                    suicide_distance_to_enemy = self._suicide_drone.pos.distance_to(self._sniper.pos)
+                    ## reward is higher when suicide is closer to target during LOS
+                    immediate_reward += (PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY - suicide_distance_to_enemy) \
+                                        / PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY
+                    immediate_reward += (PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY - suicide_distance_to_enemy) \
+                                        / PlannerScenarioEnv.MAX_DISTANCE_TO_ENEMY
+
+                    # TODO uncomment these if you are fascist
+                    # self._move_commanded = False
+                    # self.attack_enemy(action_list, entities_with_los_to_enemy)
+                else:
+                    self.ambush_on_indication_target(action_list)
 
             # Execute Actions in simulation
             try:
@@ -866,10 +875,7 @@ def main(args=None, run_stable_baselines_agent=False):
             done = False
             obs = planner_scenario_env.reset()
             while not done:
-                # action = act%2;
-                action = np.random.randint(0,4,1)
-                print(action)
-                obs, reward, done, _ = planner_scenario_env.step(action)
+                obs, reward, done, _ = planner_scenario_env.step(act%2)
                 ep_reward.append(reward)
 
             print(np.sum(ep_reward))
@@ -931,4 +937,4 @@ def main(args=None, run_stable_baselines_agent=False):
 
 if __name__ == '__main__':
     #ros_domain_id = 2
-    main(run_stable_baselines_agent=True)
+    main(run_stable_baselines_agent=False)
