@@ -100,7 +100,7 @@ class PlannerEnv(gym.Env):
             return self._los_enemies
 
         @property
-        def _disc_enemies_list(self):
+        def disc_enemies_list(self):
             return self._disc_enemies_list
 
         @property
