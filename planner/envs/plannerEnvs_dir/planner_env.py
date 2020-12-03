@@ -16,6 +16,7 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import String, Header
 from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
+from actionlib_msgs.msg import GoalID, GoalStatus, GoalStatusArray
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
 from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath, SGoalAndPath, \
@@ -423,7 +424,7 @@ class PlannerEnv(gym.Env):
                                                                     self.entity_overall_health_callback, 10)
         self.entityTwistSub = self.node.create_subscription(STwist, '/entity/twist',
                                                             self.entity_twist_callback, 10)
-        self.entityEnemySub = self.node.create_subscription(STwist, '/entity/enemy',
+        self.entityEnemySub = self.node.create_subscription(EntityEnemyReport, '/entity/enemy',
                                                             self.entity_discovered_enemy_callback, 10)
         # Publish topics
         self.moveToPub = self.node.create_publisher(SGlobalPose, '/entity/moveto/goal', 10)
