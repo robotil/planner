@@ -163,7 +163,15 @@ class WorldCom(Node):
         goal.header = Header()
         goal.point = Point()
         goal.point.x = 0.
-        ies:
+        goal.point.x = 0.1
+        goal.point.y = 0.1
+        goal.point.z = 0.1
+        entt = self.get_entity("T_1")
+
+        if (entt == None):
+            print("No entity found")
+            return
+        else:
             entt = self.get_entity(i.id)
             if (entt == None):
                 print("No entity found")
