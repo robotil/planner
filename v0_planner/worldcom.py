@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys
+import sys, time
 import rclpy
 from rclpy.node import Node
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -9,52 +9,116 @@ from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
 from actionlib_msgs.msg import GoalID, GoalStatus, GoalStatusArray
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
-from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath, STwist
+from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath, SGoalAndPath, \
+    STwist, EntityEnemyReport
+
+from planner.sim_admin import check_state_simulation, act_on_simulation
+from planner.sim_services import check_line_of_sight, get_all_possible_ways
+# from planner.EntityState import UGVLocalMachine, SuicideLocalMachine, DroneLocalMachine
+from collections import deque
+import logging
+import random
+import pathlib
+import os
 from planner_msgs.srv import ActGeneralAdmin, StateGeneralAdmin, CheckLOS, AllPathEntityToTarget
-import planner_msgs
 
 class WorldCom(Node):
 
     class Enemy:
         def __init__(self, msg):
             self.cep = msg.cep
-            self.gpoint = msg.gpose
-            self.priority=msg.priority
+            # self.gpoint = msg.gpose # self.gpoint = Point(x=-0.000204155, y=0.00035984, z=0.044715006)
+            self.gpoint = msg.gpose  # Point(x=40.0, y=-23.0, z=0.044715006)
+            self.priority = msg.priority
             self.tclass = msg.tclass
             self.is_alive = msg.is_alive
+            # self.is_alive = msg.is_alive
             self.id = msg.id
 
         def update(self, n_enn):
             self.cep = n_enn.cep
-            self.gpoint = n_enn.gpoint
+            # 28/10/2020: Add 1.5 to the sniper, i.e all enemies
+            self.gpoint = Point(x=n_enn.gpoint.x, y=n_enn.gpoint.y, z=n_enn.gpoint.z + 1.5)
             self.priority = n_enn.priority
             self.tclass = n_enn.tclass
             self.is_alive = n_enn.is_alive
 
+
+
     class Entity:
         def __init__(self, msg):
+            # def __init__(self, msg, state='zero'):
             self.id = msg.id
             self.diagstatus = msg.diagstatus
-            self.type = 0
-            self.gpoint= Point()
+            self.gpoint = Point()
             self.imu = Imu()
-            self.health = KeyValue()
+            self.health = {}
             self.twist = Twist()
+            self._los_enemies = []
+            self._discovered_enemies = {}
+            self._disc_enemies_list = []
+
+        @property
+        def los_enemies(self):
+            return self._los_enemies
+
+        @property
+        def disc_enemies_list(self):
+            return self._disc_enemies_list
+
 
         def update_desc(self, n_ent):
             self.diagstatus = n_ent.diagstatus
 
         def update_gpose(self, n_pose):
-            self.gpoint = n_pose
+            if self.id == 'UGV':
+                # 28/10/2020: Add 3.5 to UGV
+                self.gpoint = Point(x=n_pose.x, y=n_pose.y, z=n_pose.z + 3.5)
+            else:
+                self.gpoint = Point(x=n_pose.x, y=n_pose.y, z=n_pose.z)
 
         def update_imu(self, n_imu):
             self.imu = n_imu
 
         def update_health(self, n_health):
-            self.health = n_health
+            for a in n_health:
+                self.health[a.key] = a.value
 
         def update_twist(self, n_twist):
             self.twist = n_twist
+
+        def is_line_of_sight_to(self, pos):
+            res = False
+            for enm in self._los_enemies:
+                if enm.pos.equals(pos):
+                    res = True
+                    break
+            return res
+
+        def is_los_enemy(self, enemy):
+            res = False
+            for enm in self._los_enemies:
+                if enm.id == enemy.id:
+                    res = True
+                    break
+            return res
+
+        def update_discovered_enemy(self, enemy):
+            right_now = time.time()
+            if enemy.id in self._discovered_enemies:
+                self._discovered_enemies[enemy.id]=right_now
+                self._disc_enemies_list.append(enemy)
+            else:
+                self._discovered_enemies[enemy.id]=right_now
+                if (not bool(self._discovered_enemies)):
+                    for enmid in list[self._discovered_enemies]:
+                        if enmid != enemy.id:
+                            if (right_now - self._discovered_enemies[enmid]) > self.TIMEOUT_SEC:
+                                del self._discovered_enemies[enmid]
+                                this_enemy = self.get_enemy(enmid)
+                                if this_enemy is not None:
+                                    self._disc_enemies_list.remove[this_enemy]
+
 
     def __init__(self, args=None):
         rclpy.init(args=args)
@@ -73,6 +137,8 @@ class WorldCom(Node):
         self.entityImuSub = self.create_subscription(SImu, '/entity/imu', self.entity_imu_callback, 10)
         self.entityOverallHealthSub = self.create_subscription(SHealth, '/entity/overall_health', self.entity_overall_health_callback, 10)
         self.entityTwistSub = self.create_subscription(STwist, '/entity/twist', self.entity_twist_callback, 10)
+        self.entityEnemySub = self.create_subscription(EntityEnemyReport, '/entity/enemy',
+                                                            self.entity_discovered_enemy_callback, 10)
 
         self.moveToPub = self.create_publisher(SGlobalPose, '/entity/moveto/goal', 10)
         self.attackPub = self.create_publisher(SGlobalPose, '/entity/attack/goal', 10)
@@ -153,7 +219,7 @@ class WorldCom(Node):
         test_enemies = self.enemies
         self.get_logger().info('Entities: ' + self.entities.__str__()+ ' Enemies: '+ self.enemies.__str__())
         for i in test_entities:
-            print("entity:"+i.id+" type:"+ ascii(i.type) + " level:"+ ascii(i.diagstatus.level))
+            print("entity:"+i.id+" type:"+ " level:"+ ascii(i.diagstatus.level))
             for j in i.diagstatus.values:
                 print(j)
         for i in test_enemies:
@@ -205,6 +271,8 @@ class WorldCom(Node):
                 break
         if not res:
             self.entities.append(a)
+            if not a.id == 'UGV':
+                self.entities_queue.append(a)
 
         self.get_logger().debug('Received: "%s"' % msg)
 
@@ -250,11 +318,19 @@ class WorldCom(Node):
         self.world_state['Twist'] = msg.twist
         self.get_logger().debug('Received: "%s"' % msg)
 
-    def move_entity_to_goal(self, entity, goal):
-        self.get_logger().info('Move entity:'+entity.id+" to position:"+ goal.__str__())
+    def entity_discovered_enemy_callback(self, msg):
+        this_entity = self.get_entity(msg.id)
+        if this_entity is None:
+            self.get_logger().info('This entity "%s" is not managed yet' % msg.id)
+            return
+        this_entity.update_discovered_enemy(msg.enemy)
+        self.get_logger().debug('Received: "%s"' % msg)
+
+    def move_entity_to_goal(self, entity_id, goal):
+        self.get_logger().info('Move entity:' + entity_id + " to position:" + goal.__str__())
         msg = SGlobalPose()
         msg.gpose = goal
-        msg.id = entity.id
+        msg.id = entity_id
         self.moveToPub.publish(msg)
 
     def look_at_goal(self, entity, goal):
