@@ -19,7 +19,7 @@ from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PointStamped, PolygonStamped, Twist, TwistStamped, PoseStamped, Point
 from planner_msgs.msg import SDiagnosticStatus, SGlobalPose, SHealth, SImu, EnemyReport, OPath, SPath, SGoalAndPath, \
-    STwist
+    STwist, EntityEnemyReport
 
 from logic_simulator.pos import Pos
 from planner.sim_admin import check_state_simulation, act_on_simulation
@@ -53,6 +53,7 @@ class PlannerEnv(gym.Env):
     STEP_REWARD = 1 / MAX_STEPS
     FINAL_REWARD = 1.0
     ENEMY_POS_2 = Point(x=29.999796, y=33.0004159, z=0.0447149366)
+    TIMEOUT_SEC = 60.0
 
     class Enemy:
         def __init__(self, msg):
@@ -90,10 +91,16 @@ class PlannerEnv(gym.Env):
             self.twist = Twist()
             self._pos = Pos()
             self._los_enemies = []
+            self._discovered_enemies = {}
+            self._disc_enemies_list = []
 
         @property
         def los_enemies(self):
             return self._los_enemies
+
+        @property
+        def _disc_enemies_list(self):
+            return self._disc_enemies_list
 
         @property
         def pos(self):
@@ -136,6 +143,24 @@ class PlannerEnv(gym.Env):
                     res = True
                     break
             return res
+
+        def update_discovered_enemy(self, enemy):
+            right_now = time.time()
+            if enemy.id in self._discovered_enemies:
+                self._discovered_enemies[enemy.id]=right_now
+                self._disc_enemies_list.append(enemy)
+            else:
+                self._discovered_enemies[enemy.id]=right_now
+            for enmid in list[self._discovered_enemies]:
+                if enmid != enemy.id:
+                    if (right_now - self._discovered_enemies[enmid]) > self.TIMEOUT_SEC:
+                        del self._discovered_enemies[enmid]
+                        this_enemy = self.get_enemy(enmid)
+                        if this_enemy is not None:
+                            self._disc_enemies_list.remove[this_enemy]
+
+
+
 
     def get_entity(self, id):
         found = None
@@ -214,12 +239,21 @@ class PlannerEnv(gym.Env):
         this_entity.update_twist(msg.twist)
         self.node.get_logger().debug('Received: "%s"' % msg)
 
+    def entity_discovered_enemy_callback(self, msg):
+        this_entity = self.get_entity(msg.id)
+        if this_entity is None:
+            self.node.get_logger().info('This entity "%s" is not managed yet' % msg.id)
+            return
+        this_entity.update_discovered_enemy(msg.enemy)
+        self.node.get_logger().debug('Received: "%s"' % msg)
+
     def move_entity_to_goal(self, entity_id, goal):
         self.node.get_logger().info('Move entity:' + entity_id + " to position:" + goal.__str__())
         msg = SGlobalPose()
         msg.gpose = goal
         msg.id = entity_id
         self.moveToPub.publish(msg)
+
 
     def look_at_goal(self, entity_id, goal):
         self.node.get_logger().info('Entity:' + entity_id + " should look at:" + goal.__str__())
@@ -389,12 +423,15 @@ class PlannerEnv(gym.Env):
                                                                     self.entity_overall_health_callback, 10)
         self.entityTwistSub = self.node.create_subscription(STwist, '/entity/twist',
                                                             self.entity_twist_callback, 10)
+        self.entityEnemySub = self.node.create_subscription(STwist, '/entity/enemy',
+                                                            self.entity_discovered_enemy_callback, 10)
         # Publish topics
         self.moveToPub = self.node.create_publisher(SGlobalPose, '/entity/moveto/goal', 10)
         self.attackPub = self.node.create_publisher(SGlobalPose, '/entity/attack/goal', 10)
         self.lookPub = self.node.create_publisher(SGlobalPose, '/entity/look/goal', 10)
         self.takePathPub = self.node.create_publisher(SPath, '/entity/takepath', 10)
         self.takeGoalPathPub = self.node.create_publisher(SGoalAndPath, '/entity/followpath/goal', 10)
+
         self.num_of_dead_enemies = 0
         if  os.environ.get('ROS_DOMAIN_ID') == None:
             ros_domain_id = 0
